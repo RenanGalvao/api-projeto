@@ -1,0 +1,26 @@
+version: '3.9'
+services:
+
+  test-redis:
+    image: redis:7-alpine
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+        window: 120s
+    ports:
+      - 6379:6379
+    networks:
+      - test_network
+
+  test-db:
+    image: postgres:13
+    ports:
+      - 5432:5432
+    env_file:
+      - .env.test
+    networks:
+      - test_network
+
+networks:
+  test_network:

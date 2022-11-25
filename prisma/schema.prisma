@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TokenType {
+  RECOVER_EMAIL
+}
+
+// Models
+model User {
+  id                 String   @id @default(uuid())
+  firstName          String
+  lastName           String?
+  email              String   @unique
+  hashedPassword     String
+  role               Role     @default(USER)
+  avatar             String?
+  lastAccess         DateTime @default(now())
+  hashedRefreshToken String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+  Logs      Log[]
+
+  @@map("users")
+}
+
+model Log {
+  id         String   @id @default(uuid())
+  ip         String
+  method     String
+  url        String
+  body       Json?
+  files      String[]
+  query      String?
+  statusCode String
+
+  user      User?     @relation(fields: [userId], references: [id])
+  userId    String?
+  createdAt DateTime  @default(now())
+  deleted   DateTime?
+
+  @@map("logs")
+}
+
+model Token {
+  id        String    @id @default(uuid())
+  token     String
+  email     String
+  used      Boolean   @default(false)
+  tokenType TokenType
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deleted   DateTime?
+
+  @@map("tokens")
+}
+
+model File {
+  id       String @id @default(uuid())
+  name     String
+  mimeType String
+  size     Int
+
+  createdAt DateTime  @default(now())
+  deleted   DateTime?
+
+  @@map("files")
+}
