@@ -1,4 +1,11 @@
-import { CacheInterceptor, CacheModule, CacheStore, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import {
+  CacheInterceptor,
+  CacheModule,
+  CacheStore,
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+} from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import configuration from './config/configuration';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -17,12 +24,13 @@ import { LoggerMiddleware } from './logger.middleware';
 import { CacheControlInterceptor } from './cache-control.interceptor';
 import { ResponseInterceptor } from './response.interceptor';
 
+import { VolunteerModule } from './volunteer/volunteer.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       load: [configuration],
-      isGlobal: true
+      isGlobal: true,
     }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
@@ -37,7 +45,7 @@ import { ResponseInterceptor } from './response.interceptor';
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => ({
         store: (await redisStore({
-          url: config.get('REDIS_URL')
+          url: config.get('REDIS_URL'),
         })) as unknown as CacheStore,
         ttl: config.get('redis.ttl'),
         max: config.get('redis.max'),
@@ -45,6 +53,7 @@ import { ResponseInterceptor } from './response.interceptor';
       }),
     }),
 
+    // Basic Routes
     AuthModule,
     LogModule,
     TokenModule,
@@ -52,6 +61,9 @@ import { ResponseInterceptor } from './response.interceptor';
     PrismaModule,
     FileModule,
     UserModule,
+
+    // Specific
+    VolunteerModule,
   ],
   providers: [
     {

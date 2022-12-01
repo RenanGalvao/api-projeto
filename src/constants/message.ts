@@ -4,7 +4,7 @@ export class MESSAGE {
     VALIDATE_TOKEN: 'Token de acesso validado com sucesso!',
     REFRESH_TOKEN: 'Token de acesso atualizado com sucesso!',
     SEND_RECOVER_EMAIL: 'Email de recuperação de conta enviado com sucesso!',
-    CONFIRM_RECOVER_EMAIL: 'Nova senha criada com sucesso!'
+    CONFIRM_RECOVER_EMAIL: 'Nova senha criada com sucesso!',
   };
 
   static RESPONSE = {

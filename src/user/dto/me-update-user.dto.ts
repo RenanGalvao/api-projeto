@@ -3,9 +3,9 @@ import { IsOptional } from 'class-validator';
 import { IsString, MinLength } from 'src/utils';
 import { CreateUserDto } from './create-user.dto';
 
-export class MeUpdateUserDto extends PartialType(OmitType(CreateUserDto, [
-  'email',
-] as const)) {
+export class MeUpdateUserDto extends PartialType(
+  OmitType(CreateUserDto, ['email'] as const),
+) {
   @IsOptional()
   @MinLength(8)
   @IsString()

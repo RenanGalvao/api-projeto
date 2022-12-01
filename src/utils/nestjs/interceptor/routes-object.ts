@@ -16,19 +16,9 @@ export const routes = {
     plural: 'Arquivos',
     gender: 'o',
   },
-  contact: {
-    singular: 'Contato',
-    plural: 'Contatos',
+  volunteer: {
+    singular: 'Voluntário',
+    plural: 'Voluntários',
     gender: 'o',
-  },
-  work: {
-    singular: 'Trabalho',
-    plural: 'Trabalhos',
-    gender: 'o',
-  },
-  media: {
-    singular: 'Mídia',
-    plural: 'Mídias',
-    gender: 'a',
   },
 } as Routes;

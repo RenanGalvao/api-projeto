@@ -7,7 +7,7 @@ import { RestoreDto, HardRemoveDto } from 'src/utils/dto';
 
 @Injectable()
 export class LogService {
-  constructor(private prismaService: PrismaService) { }
+  constructor(private prismaService: PrismaService) {}
 
   async create(payload: CreateLogDto) {
     const { user, ...payloadData } = payload;
@@ -38,10 +38,10 @@ export class LogService {
           select: {
             firstName: true,
             email: true,
-            role: true
-          }
-        }
-      }
+            role: true,
+          },
+        },
+      },
     });
   }
 
@@ -53,10 +53,10 @@ export class LogService {
           select: {
             firstName: true,
             email: true,
-            role: true
-          }
-        }
-      }
+            role: true,
+          },
+        },
+      },
     });
   }
 
@@ -66,8 +66,8 @@ export class LogService {
         deleted: null,
       },
       where: {
-        id: { in: restoreDto.ids }
-      }
+        id: { in: restoreDto.ids },
+      },
     });
   }
 
@@ -80,8 +80,8 @@ export class LogService {
   async hardRemove(hardRemoveDto: HardRemoveDto) {
     const deleteQuery = this.prismaService.log.deleteMany({
       where: {
-        id: { in: hardRemoveDto.ids }
-      }
+        id: { in: hardRemoveDto.ids },
+      },
     });
     const [result] = await this.prismaService.$transaction([deleteQuery]);
     return result;

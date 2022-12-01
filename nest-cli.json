@@ -6,6 +6,7 @@
     "assets": [{
       "include": "mail/templates/**/*",
       "outDir": "dist/src"
-    }]
+    }],
+    "plugins": ["@nestjs/swagger"]
   }
 }

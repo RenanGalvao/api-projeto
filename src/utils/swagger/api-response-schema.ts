@@ -1,7 +1,7 @@
 import { getSchemaPath } from '@nestjs/swagger';
 
 export const ApiResSchema = {
-  apply: schema => ({
+  apply: (schema) => ({
     schema: {
       type: 'object',
       properties: {
@@ -19,7 +19,7 @@ export const ApiResSchema = {
       },
     },
   }),
-  applyArr: schema => ({
+  applyArr: (schema) => ({
     schema: {
       type: 'object',
       properties: {
@@ -40,7 +40,7 @@ export const ApiResSchema = {
       },
     },
   }),
-  applyType: thisType => ({
+  applyType: (thisType) => ({
     schema: {
       type: 'object',
       properties: {

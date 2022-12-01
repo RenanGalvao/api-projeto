@@ -6,7 +6,7 @@ export class FilesTypeValidator extends FileValidator<FileTypeValidatorOptions> 
     return TEMPLATE.PIPES.FILES_TYPE(this.validationOptions.fileType);
   }
 
-  isValid(files: Express.Multer.File[] ): boolean {
+  isValid(files: Express.Multer.File[]): boolean {
     if (!this.validationOptions) {
       return true;
     }

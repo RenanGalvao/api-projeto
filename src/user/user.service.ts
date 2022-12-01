@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException, Query } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  Query,
+} from '@nestjs/common';
 import { Role, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto, MeUpdateUserDto, UpdateUserDto } from './dto';
@@ -11,7 +16,7 @@ import { RestoreDto, HardRemoveDto } from 'src/utils/dto';
 
 @Injectable()
 export class UserService {
-  constructor(private prismaService: PrismaService) { }
+  constructor(private prismaService: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
     try {
@@ -20,14 +25,22 @@ export class UserService {
           firstName: createUserDto.firstName,
           lastName: createUserDto.lastName,
           email: createUserDto.email,
-          role: createUserDto.role ? createUserDto.role : Role.USER,
+          role: createUserDto.role ? createUserDto.role : Role.VOLUNTEER,
           avatar: createUserDto.avatar,
           lastAccess: new Date(),
-          hashedPassword: bcrypt.hashSync(createUserDto.password, bcrypt.genSaltSync()),
+          hashedPassword: bcrypt.hashSync(
+            createUserDto.password,
+            bcrypt.genSaltSync(),
+          ),
         },
       });
 
-      return PrismaUtils.exclude(newUser, 'hashedPassword', 'hashedRefreshToken', 'deleted');
+      return PrismaUtils.exclude(
+        newUser,
+        'hashedPassword',
+        'hashedRefreshToken',
+        'deleted',
+      );
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -51,7 +64,12 @@ export class UserService {
     const user = await this.prismaService.user.findUnique({
       where: { id },
     });
-    return PrismaUtils.exclude(user, 'hashedPassword', 'hashedRefreshToken', 'deleted');
+    return PrismaUtils.exclude(
+      user,
+      'hashedPassword',
+      'hashedRefreshToken',
+      'deleted',
+    );
   }
 
   async findByEmailAuth(email: string): Promise<User | null> {
@@ -68,7 +86,12 @@ export class UserService {
         where: { id },
         data: updateUserDto,
       });
-      return PrismaUtils.exclude(user, 'hashedPassword', 'hashedRefreshToken', 'deleted');
+      return PrismaUtils.exclude(
+        user,
+        'hashedPassword',
+        'hashedRefreshToken',
+        'deleted',
+      );
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -131,7 +154,12 @@ export class UserService {
       const user = await this.prismaService.user.delete({
         where: { id },
       });
-      return PrismaUtils.exclude(user, 'hashedPassword', 'hashedRefreshToken', 'deleted');
+      return PrismaUtils.exclude(
+        user,
+        'hashedPassword',
+        'hashedRefreshToken',
+        'deleted',
+      );
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -149,12 +177,20 @@ export class UserService {
     const userMe = await this.prismaService.user.findUnique({
       where: { id: user.id },
     });
-    return PrismaUtils.exclude(userMe, 'hashedPassword', 'hashedRefreshToken', 'deleted');
+    return PrismaUtils.exclude(
+      userMe,
+      'hashedPassword',
+      'hashedRefreshToken',
+      'deleted',
+    );
   }
 
   async updateMe(user: User, updateUserDto: MeUpdateUserDto) {
     if (updateUserDto.password) {
-      const hashedPassword = bcrypt.hashSync(updateUserDto.password, bcrypt.genSaltSync());
+      const hashedPassword = bcrypt.hashSync(
+        updateUserDto.password,
+        bcrypt.genSaltSync(),
+      );
       delete updateUserDto.password;
       (updateUserDto as any).hashedPassword = hashedPassword;
     }
@@ -164,7 +200,12 @@ export class UserService {
         where: { id: user.id },
         data: updateUserDto,
       });
-      return PrismaUtils.exclude(userMe, 'hashedPassword', 'hashedRefreshToken', 'deleted');
+      return PrismaUtils.exclude(
+        userMe,
+        'hashedPassword',
+        'hashedRefreshToken',
+        'deleted',
+      );
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -183,7 +224,12 @@ export class UserService {
       const userMe = await this.prismaService.user.delete({
         where: { id: user.id },
       });
-      return PrismaUtils.exclude(userMe, 'hashedPassword', 'hashedRefreshToken', 'deleted');
+      return PrismaUtils.exclude(
+        userMe,
+        'hashedPassword',
+        'hashedRefreshToken',
+        'deleted',
+      );
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
@@ -203,16 +249,16 @@ export class UserService {
         deleted: null,
       },
       where: {
-        id: { in: restoreDto.ids }
-      }
+        id: { in: restoreDto.ids },
+      },
     });
   }
 
   async hardRemove(hardRemoveDto: HardRemoveDto) {
     const deleteQuery = this.prismaService.user.deleteMany({
       where: {
-        id: { in: hardRemoveDto.ids }
-      }
+        id: { in: hardRemoveDto.ids },
+      },
     });
     const [result] = await this.prismaService.$transaction([deleteQuery]);
     return result;

@@ -69,7 +69,10 @@ export class AuthService {
     );
 
     if (isTokenValid) {
-      await this.userService.updatePasswordByEmail(newPassword.email, newPassword.password);
+      await this.userService.updatePasswordByEmail(
+        newPassword.email,
+        newPassword.password,
+      );
       return true;
     } else {
       throw new BadRequestException({
@@ -110,7 +113,10 @@ export class AuthService {
       });
     }
 
-    const isValid = bcrypt.compareSync(refreshToken, userInDB.hashedRefreshToken);
+    const isValid = bcrypt.compareSync(
+      refreshToken,
+      userInDB.hashedRefreshToken,
+    );
     if (isValid) {
       const tokens = await this.generateTokens(userInDB);
       await this.updateRefreshTokenHash(userInDB, tokens.refreshToken);
@@ -125,7 +131,10 @@ export class AuthService {
   }
 
   async updateRefreshTokenHash(user: User, refreshToken: string) {
-    const hashedRefreshToken = bcrypt.hashSync(refreshToken, bcrypt.genSaltSync());
+    const hashedRefreshToken = bcrypt.hashSync(
+      refreshToken,
+      bcrypt.genSaltSync(),
+    );
     await this.prismaService.user.update({
       where: { id: user.id },
       data: { hashedRefreshToken },

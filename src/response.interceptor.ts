@@ -1,4 +1,9 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Request } from 'express';
@@ -12,7 +17,7 @@ export class ResponseInterceptor implements NestInterceptor {
     const route = getRoute(request.path);
 
     return next.handle().pipe(
-      map(data => ({
+      map((data) => ({
         message: generateMessage(route, handler),
         data: handleData(context, handler, data),
         timestamp: new Date().toISOString(),

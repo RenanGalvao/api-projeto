@@ -8,5 +8,12 @@
   },
   "moduleNameMapper": {
     "src/(.*)": "<rootDir>/src/$1"
+  },
+  "globals": {
+    "ts-jest": {
+      "astTransformers": {
+        "before": ["<rootDir>/test/nest-swagger-transformer.ts"]
+      }
+    }
   }
 }

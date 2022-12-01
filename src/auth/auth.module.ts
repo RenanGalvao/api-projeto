@@ -18,7 +18,8 @@ import { TokenModule } from 'src/token/token.module';
     UserModule,
     PassportModule,
     JwtModule.registerAsync({
-      useFactory: (configService: ConfigService) => configService.get('jwt.accessToken'),
+      useFactory: (configService: ConfigService) =>
+        configService.get('jwt.accessToken'),
       inject: [ConfigService],
     }),
     MailModule,

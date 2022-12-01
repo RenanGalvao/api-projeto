@@ -6,3 +6,4 @@ export * from './jest';
 export * from './nestjs/pipe-validator';
 export * from './nestjs/interceptor';
 export * from './dto';
+export * from './google-maps';

@@ -98,7 +98,9 @@ describe('Token Service Integration', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(MESSAGE.EXCEPTION.TOKEN_NOT_SET);
-        const isTokenUsed = (await prisma.token.findUnique({ where: { id: tokenId } })).used;
+        const isTokenUsed = (
+          await prisma.token.findUnique({ where: { id: tokenId } })
+        ).used;
         expect(isTokenUsed).toBeFalsy();
       }
     });
@@ -122,7 +124,9 @@ describe('Token Service Integration', () => {
       const isTokenValid = await tokenService.validate(email, token);
       expect(isTokenValid).toBeTruthy();
 
-      const isTokenUsed = (await prisma.token.findUnique({ where: { id: tokenId } })).used;
+      const isTokenUsed = (
+        await prisma.token.findUnique({ where: { id: tokenId } })
+      ).used;
       expect(isTokenUsed).toBeTruthy();
     });
   });
@@ -173,7 +177,9 @@ describe('Token Service Integration', () => {
       });
       expect(response.data).toHaveLength(randomNTokens);
       expect(response.totalCount).toBe(ITEMS_PER_PAGE);
-      expect(response.totalPages).toBe(Math.ceil(response.totalCount / randomNTokens));
+      expect(response.totalPages).toBe(
+        Math.ceil(response.totalCount / randomNTokens),
+      );
     });
   });
 
@@ -187,7 +193,9 @@ describe('Token Service Integration', () => {
 
     it('Should Return a Token', async () => {
       const email = 'email@example.com';
-      const tokenString = tokenConfig.possibleChars[0].repeat(tokenConfig.length);
+      const tokenString = tokenConfig.possibleChars[0].repeat(
+        tokenConfig.length,
+      );
       const hashedToken = bcrypt.hashSync(tokenString, bcrypt.genSaltSync());
       const tokenCreated = await prisma.token.create({
         data: {
@@ -219,7 +227,9 @@ describe('Token Service Integration', () => {
 
     it('Should Remove Token', async () => {
       const email = 'email@example.com';
-      const tokenString = tokenConfig.possibleChars[0].repeat(tokenConfig.length);
+      const tokenString = tokenConfig.possibleChars[0].repeat(
+        tokenConfig.length,
+      );
       const hashedToken = bcrypt.hashSync(tokenString, bcrypt.genSaltSync());
       const token = await prisma.token.create({
         data: {
