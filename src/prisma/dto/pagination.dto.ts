@@ -12,7 +12,7 @@ export class PaginationDto {
   page?: number;
   @IsOptional()
   @IsBoolean()
-  @Transform(params => params.obj.deleted === 'true')
+  @Transform((params) => params.obj.deleted === 'true')
   deleted?: boolean;
   @IsOptional()
   @IsString()

@@ -1,4 +1,4 @@
-import { CACHE_MANAGER, INestApplication } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/common';
 import { Log, Role, User } from '@prisma/client';
 import { Cache } from 'cache-manager';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -7,9 +7,11 @@ import * as request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { AppModule } from 'src/app.module';
 import { ITEMS_PER_PAGE } from 'src/constants';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { createUser, getToken, setAppConfig } from 'src/utils/test';
 
 describe('Log Controller E2E', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
   let cacheManager: Cache;
 
@@ -20,23 +22,6 @@ describe('Log Controller E2E', () => {
   const password = '12345678';
   const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
 
-  const createUser = async (
-    firstName: string,
-    email: string,
-    hashedPassword: string,
-    role: Role = Role.USER,
-  ) =>
-    await prisma.user.create({
-      data: { firstName, email, hashedPassword, role },
-    });
-  const getToken = async (email: string, password: string) => {
-    return (
-      await request(app.getHttpServer())
-        .post('/auth/signin')
-        .set('Content-type', 'application/json')
-        .send({ email, password: password })
-    ).body.data.accessToken;
-  };
   const createLog = async (
     ip: string,
     method: string,
@@ -56,15 +41,22 @@ describe('Log Controller E2E', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    setAppConfig(app);
     await app.init();
     prisma = moduleRef.get(PrismaService);
     cacheManager = moduleRef.get(CACHE_MANAGER);
 
-    user = await createUser('joão', 'user@example.com', hashedPassword);
-    admin = await createUser('Sigma', 'admin@example.com', hashedPassword, Role.ADMIN);
+    user = await createUser(prisma, 'joão', 'user@example.com', hashedPassword);
+    admin = await createUser(
+      prisma,
+      'Sigma',
+      'admin@example.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
 
-    userToken = await getToken(user.email, password);
-    adminToken = await getToken(admin.email, password);
+    userToken = await getToken(app, user.email, password);
+    adminToken = await getToken(app, admin.email, password);
   });
 
   afterAll(async () => {
@@ -141,12 +133,12 @@ describe('Log Controller E2E', () => {
         .fill(0)
         .map(
           () =>
-          ({
-            ip: '127.0.0.1',
-            method: 'POST',
-            url: '/work',
-            statusCode: '201',
-          } as Log),
+            ({
+              ip: '127.0.0.1',
+              method: 'POST',
+              url: '/work',
+              statusCode: '201',
+            } as Log),
         );
       await prisma.log.createMany({
         data: logsToCreate,
@@ -169,12 +161,12 @@ describe('Log Controller E2E', () => {
         .fill(0)
         .map(
           () =>
-          ({
-            ip: '127.0.0.1',
-            method: 'POST',
-            url: '/work',
-            statusCode: '201',
-          } as Log),
+            ({
+              ip: '127.0.0.1',
+              method: 'POST',
+              url: '/work',
+              statusCode: '201',
+            } as Log),
         );
       await prisma.log.createMany({
         data: logsToCreate,
@@ -231,12 +223,12 @@ describe('Log Controller E2E', () => {
         .fill(0)
         .map(
           () =>
-          ({
-            ip: '127.0.0.1',
-            method: 'POST',
-            url: '/work',
-            statusCode: '201',
-          } as Log),
+            ({
+              ip: '127.0.0.1',
+              method: 'POST',
+              url: '/work',
+              statusCode: '201',
+            } as Log),
         );
       await prisma.log.createMany({
         data: logsToCreate,
@@ -247,7 +239,6 @@ describe('Log Controller E2E', () => {
         .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
-
 
       const response = await request(app.getHttpServer())
         .get('/log')

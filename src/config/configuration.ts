@@ -79,5 +79,5 @@ export default () => ({
     port: process.env.REDIS_PORT,
     ttl: 60 * 5, // 5 minutes - in secs
     max: 1000,
-  }
-})
+  },
+});

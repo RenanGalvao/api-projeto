@@ -15,7 +15,7 @@ export class LoggerMiddleware implements NestMiddleware {
       const { file, files } = req;
       const fileUploaded = file ? [file.filename] : [];
       const filesUploaded = files
-        ? (files as Express.Multer.File[]).map(file => file.filename)
+        ? (files as Express.Multer.File[]).map((file) => file.filename)
         : [];
 
       const user = (req.user as User) || undefined;

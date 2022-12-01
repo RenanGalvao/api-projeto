@@ -40,7 +40,7 @@ describe('User Service Integration', () => {
 
       expect(user.firstName).toBe(firstName);
       expect(user.email).toBe(email);
-      expect(user.role).toBe(Role.USER);
+      expect(user.role).toBe(Role.VOLUNTEER);
       expect(user.avatar).toBeNull();
       expect(user.lastAccess).toBeDefined();
     });
@@ -59,7 +59,9 @@ describe('User Service Integration', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(ConflictException);
         expect(error.response.message).toBeDefined();
-        expect(error.response.message).toBe(TEMPLATE.EXCEPTION.CONFLICT('E-mail', 'o'));
+        expect(error.response.message).toBe(
+          TEMPLATE.EXCEPTION.CONFLICT('E-mail', 'o'),
+        );
       }
     });
   });
@@ -77,11 +79,11 @@ describe('User Service Integration', () => {
         .fill(0)
         .map(
           (v, i) =>
-          ({
-            firstName: `Jão ${i}`,
-            email: `user${i}@example.com`,
-            hashedPassword: 'notarealhash',
-          } as User),
+            ({
+              firstName: `Jão ${i}`,
+              email: `user${i}@example.com`,
+              hashedPassword: 'notarealhash',
+            } as User),
         );
       await prisma.user.createMany({
         data: usersToCreate,
@@ -100,11 +102,11 @@ describe('User Service Integration', () => {
         .fill(0)
         .map(
           (v, i) =>
-          ({
-            firstName: `Jão ${i}`,
-            email: `user${i}@example.com`,
-            hashedPassword: 'notarealhash',
-          } as User),
+            ({
+              firstName: `Jão ${i}`,
+              email: `user${i}@example.com`,
+              hashedPassword: 'notarealhash',
+            } as User),
         );
       await prisma.user.createMany({
         data: usersToCreate,
@@ -116,7 +118,9 @@ describe('User Service Integration', () => {
       expect(response.data).toHaveLength(randomNUsers);
       expect(response.data[0].hashedPassword).toBeUndefined();
       expect(response.totalCount).toBe(ITEMS_PER_PAGE);
-      expect(response.totalPages).toBe(Math.ceil(response.totalCount / randomNUsers));
+      expect(response.totalPages).toBe(
+        Math.ceil(response.totalCount / randomNUsers),
+      );
     });
   });
 
@@ -140,7 +144,7 @@ describe('User Service Integration', () => {
       const user = await userService.findOne(userCreated.id);
       expect(user.firstName).toBe(firstName);
       expect(user.email).toBe(email);
-      expect(user.role).toBe(Role.USER);
+      expect(user.role).toBe(Role.VOLUNTEER);
       expect(user.avatar).toBeNull();
       expect(user.lastAccess).toBeDefined();
     });
@@ -163,7 +167,7 @@ describe('User Service Integration', () => {
 
       const user = await userService.findByEmailAuth(email);
       expect(user.email).toBe(email);
-      expect(user.role).toBe(Role.USER);
+      expect(user.role).toBe(Role.VOLUNTEER);
       expect(user.hashedPassword).toBeDefined();
     });
   });
@@ -178,7 +182,9 @@ describe('User Service Integration', () => {
         });
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.response.message).toBe(TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'));
+        expect(error.response.message).toBe(
+          TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'),
+        );
       }
     });
 
@@ -196,7 +202,7 @@ describe('User Service Integration', () => {
       expect(userUpdated.firstName).toBe(firstName);
       expect(userUpdated.lastName).toBe(lastName);
       expect(userUpdated.email).toBe(email);
-      expect(userUpdated.role).toBe(Role.USER);
+      expect(userUpdated.role).toBe(Role.VOLUNTEER);
       expect(userUpdated.avatar).toBeNull();
       expect(userUpdated.lastAccess).toBeDefined();
     });
@@ -209,7 +215,9 @@ describe('User Service Integration', () => {
         await userService.updateLastAccess(randomId);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.response.message).toBe(TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'));
+        expect(error.response.message).toBe(
+          TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'),
+        );
       }
     });
 
@@ -219,7 +227,7 @@ describe('User Service Integration', () => {
           firstName,
           email: 'email@example.com',
           hashedPassword: 'notarealhash',
-          role: Role.USER,
+          role: Role.VOLUNTEER,
         },
       });
       const oldLastAccess = user.lastAccess;
@@ -252,12 +260,13 @@ describe('User Service Integration', () => {
           firstName,
           email,
           hashedPassword: oldHash,
-          role: Role.USER,
+          role: Role.VOLUNTEER,
         },
       });
 
       await userService.updatePasswordByEmail(email, newPassword);
-      const newHash = (await prisma.user.findUnique({ where: { email } })).hashedPassword;
+      const newHash = (await prisma.user.findUnique({ where: { email } }))
+        .hashedPassword;
 
       expect(newHash).not.toBe(oldHash);
       expect(bcrypt.compareSync(newPassword, newHash)).toBeTruthy();
@@ -271,7 +280,9 @@ describe('User Service Integration', () => {
         await userService.remove(randomId);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.response.message).toBe(TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'));
+        expect(error.response.message).toBe(
+          TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'),
+        );
       }
     });
 
@@ -325,11 +336,16 @@ describe('User Service Integration', () => {
         },
       });
 
-      const userUpdated = await userService.updateMe(user, { lastName, password });
+      const userUpdated = await userService.updateMe(user, {
+        lastName,
+        password,
+      });
       expect(userUpdated).toBeDefined();
       expect(userUpdated.lastName).toBe(lastName);
 
-      const newHashedPassword = (await prisma.user.findUnique({ where: { email: user.email } })).hashedPassword;
+      const newHashedPassword = (
+        await prisma.user.findUnique({ where: { email: user.email } })
+      ).hashedPassword;
       expect(user.hashedPassword).not.toBe(newHashedPassword);
     });
   });
@@ -369,12 +385,12 @@ describe('User Service Integration', () => {
       await userService.restore({ ids: [user.id] });
       const isUserRestored = await prisma.user.findFirst({
         where: {
-          email: user.email
+          email: user.email,
         },
       });
 
       expect(isUserRestored.deleted).toBeNull();
-    })
+    });
   });
 
   describe('hardRemove()', () => {
@@ -392,8 +408,8 @@ describe('User Service Integration', () => {
       const isUserRemoved = await prisma.user.findFirst({
         where: {
           email: user.email,
-          deleted: { not: new Date() }
-        }
+          deleted: { not: new Date() },
+        },
       });
       expect(isUserRemoved).toBeNull();
     });

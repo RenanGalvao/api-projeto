@@ -59,7 +59,9 @@ describe('Main Service Integration', () => {
         await mailService.sendRecoverEmail({ email });
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.response.message).toBe(TEMPLATE.EXCEPTION.NOT_FOUND('e-mail', 'o'));
+        expect(error.response.message).toBe(
+          TEMPLATE.EXCEPTION.NOT_FOUND('e-mail', 'o'),
+        );
 
         const token = await prisma.token.findFirst({ where: { email } });
         expect(token).toBeNull();

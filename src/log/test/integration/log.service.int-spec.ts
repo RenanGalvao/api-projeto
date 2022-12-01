@@ -177,7 +177,9 @@ describe('Log Service Integration', () => {
       });
       expect(response.data).toHaveLength(randomNLogs);
       expect(response.totalCount).toBe(ITEMS_PER_PAGE);
-      expect(response.totalPages).toBe(Math.ceil(response.totalCount / randomNLogs));
+      expect(response.totalPages).toBe(
+        Math.ceil(response.totalCount / randomNLogs),
+      );
     });
   });
 
@@ -190,7 +192,8 @@ describe('Log Service Integration', () => {
     });
 
     it('Should Return a Log', async () => {
-      const method = BASIC_METHODS[Math.floor(Math.random() * BASIC_METHODS.length)];
+      const method =
+        BASIC_METHODS[Math.floor(Math.random() * BASIC_METHODS.length)];
       const statusCode = '201';
       const url = '/auth/login';
       const body = {
@@ -219,7 +222,8 @@ describe('Log Service Integration', () => {
 
   describe('restore()', () => {
     it('Should Restore Entry', async () => {
-      const method = BASIC_METHODS[Math.floor(Math.random() * BASIC_METHODS.length)];
+      const method =
+        BASIC_METHODS[Math.floor(Math.random() * BASIC_METHODS.length)];
       const statusCode = '201';
       const url = '/auth/login';
       const body = {
@@ -240,12 +244,12 @@ describe('Log Service Integration', () => {
       await logService.restore({ ids: [log.id] });
       const isLogRestored = await prisma.log.findFirst({
         where: {
-          ip: log.ip
+          ip: log.ip,
         },
       });
 
       expect(isLogRestored.deleted).toBeNull();
-    })
+    });
   });
 
   describe('clean()', () => {
@@ -277,13 +281,16 @@ describe('Log Service Integration', () => {
       const response = await logService.findAll();
       expect(response.data).toHaveLength(0);
       expect(response.totalCount).toBe(0);
-      expect(response.totalPages).toBe(Math.ceil(response.totalCount / randomNLogs));
+      expect(response.totalPages).toBe(
+        Math.ceil(response.totalCount / randomNLogs),
+      );
     });
   });
 
   describe('hardRemove()', () => {
     it('Should Hard Remove Entry', async () => {
-      const method = BASIC_METHODS[Math.floor(Math.random() * BASIC_METHODS.length)];
+      const method =
+        BASIC_METHODS[Math.floor(Math.random() * BASIC_METHODS.length)];
       const statusCode = '201';
       const url = '/auth/login';
       const body = {
@@ -305,8 +312,8 @@ describe('Log Service Integration', () => {
       const isLogRemoved = await prisma.log.findFirst({
         where: {
           ip: log.ip,
-          deleted: { not: new Date() }
-        }
+          deleted: { not: new Date() },
+        },
       });
       expect(isLogRemoved).toBeNull();
     });

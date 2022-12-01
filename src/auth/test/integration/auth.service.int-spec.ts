@@ -10,7 +10,11 @@ import { UserService } from 'src/user/user.service';
 import * as nodemailer from 'nodemailer';
 import * as bcrypt from 'bcrypt';
 import { TokenType, User } from '@prisma/client';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { MESSAGE, TEMPLATE } from 'src/constants';
 import { JwtService } from '@nestjs/jwt';
 
@@ -41,7 +45,10 @@ describe('Auth Service Integration', () => {
       secret: configService.get('jwt.refreshToken.secret'),
       expiresIn: '7d',
     });
-    const hashedRefreshToken = bcrypt.hashSync(refreshToken, bcrypt.genSaltSync());
+    const hashedRefreshToken = bcrypt.hashSync(
+      refreshToken,
+      bcrypt.genSaltSync(),
+    );
     await prisma.user.update({
       where: { id: user.id },
       data: { hashedRefreshToken },
@@ -91,7 +98,10 @@ describe('Auth Service Integration', () => {
 
   describe('validateUser()', () => {
     it("Should Not Validate (User Doesn't Exists)", async () => {
-      const isValid = await authService.validateUser('null@example.com', 'shinepass');
+      const isValid = await authService.validateUser(
+        'null@example.com',
+        'shinepass',
+      );
       expect(isValid).toBeNull();
     });
 
@@ -210,8 +220,8 @@ describe('Auth Service Integration', () => {
         data: {
           email,
           tokenType: TokenType.RECOVER_EMAIL,
-          token: bcrypt.hashSync(tokenString, bcrypt.genSaltSync())
-        }
+          token: bcrypt.hashSync(tokenString, bcrypt.genSaltSync()),
+        },
       });
 
       const isValid = await authService.tokenValidate(email, 'WRONG1');
@@ -225,8 +235,8 @@ describe('Auth Service Integration', () => {
         data: {
           email,
           tokenType: TokenType.RECOVER_EMAIL,
-          token: bcrypt.hashSync(tokenString, bcrypt.genSaltSync())
-        }
+          token: bcrypt.hashSync(tokenString, bcrypt.genSaltSync()),
+        },
       });
 
       const isValid = await authService.tokenValidate(email, tokenString);
@@ -297,7 +307,9 @@ describe('Auth Service Integration', () => {
         await authService.logout(user);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.response.message).toBe(TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'));
+        expect(error.response.message).toBe(
+          TEMPLATE.EXCEPTION.NOT_FOUND('usuário', 'o'),
+        );
       }
     });
 

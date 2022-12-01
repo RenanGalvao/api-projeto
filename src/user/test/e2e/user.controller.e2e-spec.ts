@@ -1,4 +1,4 @@
-import { CACHE_MANAGER, INestApplication } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/common';
 import { Role, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -7,11 +7,13 @@ import { AppModule } from 'src/app.module';
 import * as request from 'supertest';
 import { ITEMS_PER_PAGE } from 'src/constants';
 import { Cache } from 'cache-manager';
+import { createUser, getToken, setAppConfig } from 'src/utils/test';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 jest.setTimeout(30 * 1_000);
 
 describe('User Controller E2E', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
   let cacheManager: Cache;
 
@@ -22,39 +24,28 @@ describe('User Controller E2E', () => {
   const password = '12345678';
   const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
 
-  const createUser = async (
-    firstName: string,
-    email: string,
-    hashedPassword: string,
-    role: Role = Role.USER,
-  ) =>
-    await prisma.user.create({
-      data: { firstName, email, hashedPassword, role },
-    });
-  const getToken = async (email: string, password: string) => {
-    return (
-      await request(app.getHttpServer())
-        .post('/auth/signin')
-        .set('Content-type', 'application/json')
-        .send({ email, password: password })
-    ).body.data.accessToken;
-  };
-
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleRef.createNestApplication();
+    setAppConfig(app);
     await app.init();
     prisma = moduleRef.get(PrismaService);
     cacheManager = moduleRef.get(CACHE_MANAGER);
 
-    user = await createUser('Jão', 'user@example.com', hashedPassword);
-    admin = await createUser('Sigma', 'admin@example.com', hashedPassword, Role.ADMIN);
+    user = await createUser(prisma, 'Jão', 'user@example.com', hashedPassword);
+    admin = await createUser(
+      prisma,
+      'Sigma',
+      'admin@example.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
 
-    userToken = await getToken(user.email, password);
-    adminToken = await getToken(admin.email, password);
+    userToken = await getToken(app, user.email, password);
+    adminToken = await getToken(app, admin.email, password);
   });
 
   afterAll(async () => {
@@ -88,7 +79,12 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Not Return User', async () => {
-      const user = await createUser('Jão', 'another.user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'another.user@example.com',
+        hashedPassword,
+      );
       await request(app.getHttpServer())
         .get(`/user/${user.id}`)
         .set('Content-type', 'application/json')
@@ -97,7 +93,12 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Not Update User', async () => {
-      const user = await createUser('Jão', 'another.user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'another.user@example.com',
+        hashedPassword,
+      );
       await request(app.getHttpServer())
         .put(`/user/${user.id}`)
         .set('Content-type', 'application/json')
@@ -107,7 +108,12 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Not Remove User', async () => {
-      const user = await createUser('Jão', 'another.user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'another.user@example.com',
+        hashedPassword,
+      );
       await request(app.getHttpServer())
         .delete(`/user/${user.id}`)
         .set('Content-type', 'application/json')
@@ -116,8 +122,13 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Return Own User', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
-      const userToken = await getToken(user.email, password);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
+      const userToken = await getToken(app, user.email, password);
 
       const response = await request(app.getHttpServer())
         .get('/user/me')
@@ -134,8 +145,13 @@ describe('User Controller E2E', () => {
     it('Should Update Own User', async () => {
       const newName = 'João';
       const newPassword = 'anotherone';
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
-      const userToken = await getToken(user.email, password);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
+      const userToken = await getToken(app, user.email, password);
 
       const response = await request(app.getHttpServer())
         .put('/user/me')
@@ -152,13 +168,20 @@ describe('User Controller E2E', () => {
       expect(response.body.data.hashedRefreshToken).toBeUndefined();
       expect(response.body.data.deleted).toBeUndefined();
 
-      const newHashedPassword = (await prisma.user.findUnique({ where: { email: user.email } })).hashedPassword;
+      const newHashedPassword = (
+        await prisma.user.findUnique({ where: { email: user.email } })
+      ).hashedPassword;
       expect(user.hashedPassword).not.toBe(newHashedPassword);
     });
 
     it('Should Remove Own User', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
-      const userToken = await getToken(user.email, password);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
+      const userToken = await getToken(app, user.email, password);
 
       const response = await request(app.getHttpServer())
         .delete('/user/me')
@@ -179,13 +202,18 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Not Restore User', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
       await prisma.user.delete({ where: { email: user.email } });
 
       await request(app.getHttpServer())
         .put('/user/restore')
         .send({
-          ids: [user.id]
+          ids: [user.id],
         })
         .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
@@ -201,13 +229,18 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Not Hard Remove Work', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
       await prisma.user.delete({ where: { email: user.email } });
 
       await request(app.getHttpServer())
         .delete('/user/hard-remove')
         .send({
-          ids: [user.id]
+          ids: [user.id],
         })
         .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
@@ -247,11 +280,11 @@ describe('User Controller E2E', () => {
         .fill(0)
         .map(
           (v, i) =>
-          ({
-            firstName: `João ${i}`,
-            email: `user${i}@example.com`,
-            hashedPassword,
-          } as User),
+            ({
+              firstName: `João ${i}`,
+              email: `user${i}@example.com`,
+              hashedPassword,
+            } as User),
         );
       await prisma.user.createMany({
         data: usersToCreate,
@@ -277,11 +310,11 @@ describe('User Controller E2E', () => {
         .fill(0)
         .map(
           (v, i) =>
-          ({
-            firstName: `João ${i}`,
-            email: `user${i}@example.com`,
-            hashedPassword,
-          } as User),
+            ({
+              firstName: `João ${i}`,
+              email: `user${i}@example.com`,
+              hashedPassword,
+            } as User),
         );
       await prisma.user.createMany({
         data: usersToCreate,
@@ -305,7 +338,12 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Return User', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
       const response = await request(app.getHttpServer())
         .get(`/user/${user.id}`)
         .set('Content-Type', 'application/json')
@@ -320,7 +358,12 @@ describe('User Controller E2E', () => {
 
     it('Should Update User', async () => {
       const firstName = 'Jack';
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
       const response = await request(app.getHttpServer())
         .put(`/user/${user.id}`)
         .set('Content-Type', 'application/json')
@@ -335,7 +378,12 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Remove User', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
       const response = await request(app.getHttpServer())
         .delete(`/user/${user.id}`)
         .set('Content-Type', 'application/json')
@@ -356,8 +404,14 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Return Own User', async () => {
-      const admin = await createUser('Sigma', 'admin@example.com', hashedPassword, Role.ADMIN);
-      const adminToken = await getToken(admin.email, password);
+      const admin = await createUser(
+        prisma,
+        'Sigma',
+        'admin@example.com',
+        hashedPassword,
+        Role.ADMIN,
+      );
+      const adminToken = await getToken(app, admin.email, password);
       const response = await request(app.getHttpServer())
         .get('/user/me')
         .set('Content-Type', 'application/json')
@@ -372,8 +426,14 @@ describe('User Controller E2E', () => {
 
     it('Should Update Own User', async () => {
       const firstName = 'Brabo';
-      const admin = await createUser('Sigma', 'admin@example.com', hashedPassword, Role.ADMIN);
-      const adminToken = await getToken(admin.email, password);
+      const admin = await createUser(
+        prisma,
+        'Sigma',
+        'admin@example.com',
+        hashedPassword,
+        Role.ADMIN,
+      );
+      const adminToken = await getToken(app, admin.email, password);
       const response = await request(app.getHttpServer())
         .put('/user/me')
         .set('Content-Type', 'application/json')
@@ -388,8 +448,14 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Remove Own User', async () => {
-      const admin = await createUser('Sigma', 'admin@example.com', hashedPassword, Role.ADMIN);
-      const adminToken = await getToken(admin.email, password);
+      const admin = await createUser(
+        prisma,
+        'Sigma',
+        'admin@example.com',
+        hashedPassword,
+        Role.ADMIN,
+      );
+      const adminToken = await getToken(app, admin.email, password);
       const response = await request(app.getHttpServer())
         .delete('/user/me')
         .set('Content-Type', 'application/json')
@@ -410,7 +476,12 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Restore User', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
       await request(app.getHttpServer())
         .delete(`/user/${user.id}`)
         .set('Content-type', 'application/json')
@@ -434,7 +505,12 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Hard Remove User', async () => {
-      const user = await createUser('Jão', 'user@example.com', hashedPassword);
+      const user = await createUser(
+        prisma,
+        'Jão',
+        'user@example.com',
+        hashedPassword,
+      );
       await request(app.getHttpServer())
         .delete(`/user/${user.id}`)
         .set('Content-type', 'application/json')

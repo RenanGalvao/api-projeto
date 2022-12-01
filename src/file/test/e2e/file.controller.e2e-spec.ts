@@ -1,9 +1,14 @@
 import { Test } from '@nestjs/testing';
 import { AppModule } from 'src/app.module';
-import { CACHE_MANAGER, INestApplication, NotFoundException } from '@nestjs/common';
+import { CACHE_MANAGER, NotFoundException } from '@nestjs/common';
 import { FileService } from 'src/file/file.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { FILES_PATH, MAX_FILE_SIZE, TEMPLATE, TEST_FILES_PATH } from 'src/constants';
+import {
+  FILES_PATH,
+  MAX_FILE_SIZE,
+  TEMPLATE,
+  TEST_FILES_PATH,
+} from 'src/constants';
 import { JestUtils } from 'src/utils';
 import * as request from 'supertest';
 import * as fs from 'fs';
@@ -15,9 +20,11 @@ import configuration from 'src/config/configuration';
 import { HttpExceptionFilter } from 'src/http-exception.filter';
 import { ITEMS_PER_PAGE } from 'src/constants';
 import { Cache } from 'cache-manager';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { createUser, getToken, setAppConfig } from 'src/utils/test';
 
 describe('File Service Integration', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   let prisma: PrismaService;
   let fileService: FileService;
   let cacheManager: Cache;
@@ -28,24 +35,6 @@ describe('File Service Integration', () => {
   let adminToken: string;
   const password = '12345678';
   const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
-
-  const createUser = async (
-    firstName: string,
-    email: string,
-    hashedPassword: string,
-    role: Role = Role.USER,
-  ) =>
-    await prisma.user.create({
-      data: { firstName, email, hashedPassword, role },
-    });
-  const getToken = async (email: string, password: string) => {
-    return (
-      await request(app.getHttpServer())
-        .post('/auth/signin')
-        .set('Content-type', 'application/json')
-        .send({ email, password: password })
-    ).body.data.accessToken;
-  };
 
   let filePathMaxSize: string;
   let filesPathMaxSize: (n: number) => Promise<string>[];
@@ -77,29 +66,45 @@ describe('File Service Integration', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
-    app.useGlobalFilters(new HttpExceptionFilter());
+    setAppConfig(app);
     await app.init();
 
     prisma = moduleRef.get(PrismaService);
     fileService = moduleRef.get(FileService);
     cacheManager = moduleRef.get(CACHE_MANAGER);
 
-    user = await createUser('João', 'user@example.com', hashedPassword);
-    userToken = await getToken(user.email, password);
+    user = await createUser(prisma, 'João', 'user@example.com', hashedPassword);
+    userToken = await getToken(app, user.email, password);
 
-    admin = await createUser('Admin', 'based@email.com', hashedPassword, Role.ADMIN);
-    adminToken = await getToken(admin.email, password);
+    admin = await createUser(
+      prisma,
+      'Admin',
+      'based@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
+    adminToken = await getToken(app, admin.email, password);
 
-    filePathMaxSize = await JestUtils.createFile(fileNameMaxSize, MAX_FILE_SIZE - 1);
-    filePathExceededSize = await JestUtils.createFile(fileNameExceededSize, MAX_FILE_SIZE * 1.2);
+    filePathMaxSize = await JestUtils.createFile(
+      fileNameMaxSize,
+      MAX_FILE_SIZE - 1,
+    );
+    filePathExceededSize = await JestUtils.createFile(
+      fileNameExceededSize,
+      MAX_FILE_SIZE * 1.2,
+    );
     filesPathMaxSize = (n: number) =>
       Array(n)
         .fill(0)
-        .map((k, i) => JestUtils.createFile(filesNameMaxSize(i), MAX_FILE_SIZE - 1));
+        .map((k, i) =>
+          JestUtils.createFile(filesNameMaxSize(i), MAX_FILE_SIZE - 1),
+        );
     filesPathExceededSize = (n: number) =>
       Array(n)
         .fill(0)
-        .map((k, i) => JestUtils.createFile(filesNameMaxSize(i), MAX_FILE_SIZE * 1.2));
+        .map((k, i) =>
+          JestUtils.createFile(filesNameMaxSize(i), MAX_FILE_SIZE * 1.2),
+        );
   });
 
   afterAll(async () => {
@@ -141,7 +146,10 @@ describe('File Service Integration', () => {
     });
 
     it('Should Not Save File Nor Create an Entry (No Auth)', async () => {
-      await request(app.getHttpServer()).post('/file').attach('file', filePathMaxSize).expect(401);
+      await request(app.getHttpServer())
+        .post('/file')
+        .attach('file', filePathMaxSize)
+        .expect(401);
 
       const fileDoc = await prisma.file.findFirst({
         where: {
@@ -249,11 +257,11 @@ describe('File Service Integration', () => {
         .fill(0)
         .map(
           (v, i) =>
-          ({
-            name: filesNameMaxSize(i),
-            mimeType: 'text/plain',
-            size: MAX_FILE_SIZE,
-          } as File),
+            ({
+              name: filesNameMaxSize(i),
+              mimeType: 'text/plain',
+              size: MAX_FILE_SIZE,
+            } as File),
         );
       await prisma.file.createMany({
         data: filesToCreate,
@@ -271,11 +279,11 @@ describe('File Service Integration', () => {
         .fill(0)
         .map(
           (v, i) =>
-          ({
-            name: filesNameMaxSize(i),
-            mimeType: 'text/plain',
-            size: MAX_FILE_SIZE,
-          } as File),
+            ({
+              name: filesNameMaxSize(i),
+              mimeType: 'text/plain',
+              size: MAX_FILE_SIZE,
+            } as File),
         );
       await prisma.file.createMany({
         data: filesToCreate,
@@ -286,7 +294,9 @@ describe('File Service Integration', () => {
       });
       expect(response.data).toHaveLength(randomNFiles);
       expect(response.totalCount).toBe(ITEMS_PER_PAGE);
-      expect(response.totalPages).toBe(Math.ceil(response.totalCount / randomNFiles));
+      expect(response.totalPages).toBe(
+        Math.ceil(response.totalCount / randomNFiles),
+      );
     });
   });
 
@@ -326,7 +336,9 @@ describe('File Service Integration', () => {
         await fileService.remove(randomId);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
-        expect(error.response.message).toBe(TEMPLATE.EXCEPTION.NOT_FOUND('arquivo', 'o'));
+        expect(error.response.message).toBe(
+          TEMPLATE.EXCEPTION.NOT_FOUND('arquivo', 'o'),
+        );
       }
     });
 

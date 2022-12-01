@@ -95,7 +95,9 @@ export class TokenService {
   private generateToken() {
     let token = '';
     for (let i = 0; i < this.lenght; i++) {
-      const randomIndex = Math.round(Math.random() * (this.possibleChars.length - 1));
+      const randomIndex = Math.round(
+        Math.random() * (this.possibleChars.length - 1),
+      );
       token += this.possibleChars[randomIndex];
     }
     return token;

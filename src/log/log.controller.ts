@@ -1,4 +1,13 @@
-import { Controller, Get, Put, Delete, Param, Query, Body, CacheTTL } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Delete,
+  Param,
+  Query,
+  Body,
+  CacheTTL,
+} from '@nestjs/common';
 import { LogService } from './log.service';
 import { PaginationDto } from 'src/prisma/dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -10,7 +19,7 @@ import { RestoreDto, HardRemoveDto } from 'src/utils/dto';
 @Roles(Role.ADMIN)
 @Controller('log')
 export class LogController {
-  constructor(private readonly logService: LogService) { }
+  constructor(private readonly logService: LogService) {}
 
   @CacheTTL(1)
   @Get()

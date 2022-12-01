@@ -14,7 +14,7 @@ import { TokenValidateDto } from './dto';
 @Throttle(3, HOUR_IN_SECS)
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService) {}
 
   @Public()
   @Throttle(10, HOUR_IN_SECS)

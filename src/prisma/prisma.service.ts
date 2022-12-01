@@ -2,7 +2,7 @@ import { INestApplication, Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ITEMS_PER_PAGE } from 'src/constants';
 import { PaginationDto } from './dto';
-import { PrismaUtils } from 'src/utils';
+import { paginatedQueryOptions, PrismaUtils } from 'src/utils';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
@@ -14,7 +14,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     page: this._FIRST_PAGE,
     deleted: false,
     orderKey: 'createdAt',
-    orderValue: 'desc'
+    orderValue: 'desc',
   };
 
   async onModuleInit() {
@@ -81,12 +81,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     });
   }
 
-  async enableShutdownHooks(app: INestApplication) {
-    this.$on('beforeExit', async () => {
-      await app.close();
-    });
-  }
-
   async cleanDataBase() {
     if (process.env.NODE_ENV === 'production') return;
     const models = Reflect.ownKeys(this).filter(key => key[0] !== '_');
@@ -117,38 +111,51 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         skip,
         take,
         where: { deleted: null },
-        orderBy: { [orderKey]: orderValue }
+        orderBy: { [orderKey]: orderValue },
       };
     } else {
       return {
         skip,
         take,
-        orderBy: { [orderKey]: orderValue }
+        orderBy: { [orderKey]: orderValue },
       };
     }
   }
 
-  async paginatedQuery(modelKey: string, query?: PaginationDto, options: any = {}) {
+  async paginatedQuery(
+    modelKey: string,
+    query?: PaginationDto,
+    options: paginatedQueryOptions = {},
+  ) {
     const pagination = this.getPaginationFromQuery(query);
     let findAllQuery: any;
 
     if (options.include) {
-      findAllQuery = this[modelKey].findMany({ ...pagination, include: options.include });
+      findAllQuery = this[modelKey].findMany({
+        ...pagination,
+        include: options.include,
+      });
     } else {
       findAllQuery = this[modelKey].findMany({ ...pagination });
     }
-    
+
     const totalItemsQuery = this[modelKey].count();
     let totalCount = 0;
     let data = null;
 
     if (options.excludeKeys) {
       let tmp = null;
-      [tmp, totalCount] = await this.$transaction([findAllQuery, totalItemsQuery]);
+      [tmp, totalCount] = await this.$transaction([
+        findAllQuery,
+        totalItemsQuery,
+      ]);
       // @ts-ignore
       data = PrismaUtils.excludeMany(tmp, ...options.excludeKeys);
     } else {
-      [data, totalCount] = await this.$transaction([findAllQuery, totalItemsQuery]);
+      [data, totalCount] = await this.$transaction([
+        findAllQuery,
+        totalItemsQuery,
+      ]);
     }
     const totalPages = Math.ceil(totalCount / pagination.take);
     return { data, totalCount, totalPages };

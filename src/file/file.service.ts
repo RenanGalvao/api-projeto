@@ -12,7 +12,7 @@ import { RestoreDto, HardRemoveDto } from 'src/utils/dto';
 export class FileService {
   private readonly logger = new Logger(FileService.name);
 
-  constructor(private prismaService: PrismaService) { }
+  constructor(private prismaService: PrismaService) {}
 
   async create(file: Express.Multer.File) {
     await this.prismaService.file.create({
@@ -34,7 +34,7 @@ export class FileService {
     const filesObj = [];
     const returnObj: FileResponse[] = [];
 
-    files.forEach(async file => {
+    files.forEach(async (file) => {
       filesObj.push({
         name: file.filename,
         mimeType: file.mimetype,
@@ -106,8 +106,8 @@ export class FileService {
         deleted: null,
       },
       where: {
-        id: { in: restoreDto.ids }
-      }
+        id: { in: restoreDto.ids },
+      },
     });
   }
 
@@ -115,15 +115,18 @@ export class FileService {
     try {
       const filesQuery = this.prismaService.file.findMany({
         where: {
-          id: { in: hardRemoveDto.ids }
-        }
+          id: { in: hardRemoveDto.ids },
+        },
       });
       const deleteQuery = this.prismaService.file.deleteMany({
         where: {
-          id: { in: hardRemoveDto.ids }
-        }
+          id: { in: hardRemoveDto.ids },
+        },
       });
-      const [files, result] = await this.prismaService.$transaction([filesQuery, deleteQuery]);
+      const [files, result] = await this.prismaService.$transaction([
+        filesQuery,
+        deleteQuery,
+      ]);
 
       for (const file of files) {
         fs.unlinkSync(`${FILES_PATH}${file.name}`);

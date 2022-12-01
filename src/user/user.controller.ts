@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Put,
+  Param,
+  Delete,
+  Query,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto, MeUpdateUserDto, UpdateUserDto } from './dto';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -24,19 +33,19 @@ export class UserController {
     return this.userService.findAll(query);
   }
 
-  @Roles(Role.USER)
+  @Roles(Role.VOLUNTEER)
   @Get('me')
   findOneMe(@Jwt() user: User) {
     return this.userService.findOneMe(user);
   }
 
-  @Roles(Role.USER)
+  @Roles(Role.VOLUNTEER)
   @Put('me')
   updateMe(@Jwt() user: User, @Body() updateUserDto: MeUpdateUserDto) {
     return this.userService.updateMe(user, updateUserDto);
   }
 
-  @Roles(Role.USER)
+  @Roles(Role.VOLUNTEER)
   @Delete('me')
   removeMe(@Jwt() user: User) {
     return this.userService.removeMe(user);

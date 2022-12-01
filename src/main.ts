@@ -16,7 +16,7 @@ async function bootstrap() {
   app.use(helmet());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.enableCors({
-    exposedHeaders: ['x-total-count', 'x-total-pages']
+    exposedHeaders: ['x-total-count', 'x-total-pages'],
   });
   app.useGlobalPipes(
     new ValidationPipe({
