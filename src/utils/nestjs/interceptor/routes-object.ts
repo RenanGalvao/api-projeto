@@ -26,4 +26,9 @@ export const routes = {
     plural: 'Campos',
     gender: 'o',
   },
+  agenda: {
+    singular: 'Event',
+    plural: 'Eventos',
+    gender: 'o'
+  }
 } as Routes;

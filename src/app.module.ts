@@ -26,6 +26,7 @@ import { ResponseInterceptor } from './response.interceptor';
 
 import { VolunteerModule } from './volunteer/volunteer.module';
 import { FieldModule } from './field/field.module';
+import { AgendaModule } from './agenda/agenda.module';
 
 @Module({
   imports: [
@@ -67,6 +68,8 @@ import { FieldModule } from './field/field.module';
     VolunteerModule,
 
     FieldModule,
+
+    AgendaModule,
   ],
   providers: [
     {

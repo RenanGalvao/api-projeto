@@ -190,13 +190,13 @@ describe('Volunteer Service Integration', () => {
       });
 
       await volunteerService.remove(volunteer.id);
-      const isWorkDeleted = await prisma.volunteer.findFirst({
+      const isVolunteerDeleted = await prisma.volunteer.findFirst({
         where: {
           id: volunteer.id,
           deleted: { lte: new Date() },
         },
       });
-      expect(isWorkDeleted.deleted).toBeDefined();
+      expect(isVolunteerDeleted.deleted).toBeDefined();
     });
   });
 
