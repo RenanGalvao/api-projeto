@@ -150,7 +150,7 @@ describe('Volunteer Service Integration', () => {
       }
     });
 
-    it('Should Update a Volunteer', async () => {
+    it('Should Update Volunteer', async () => {
       const newFirstName = 'Phelp';
       const volunteer = await volunteerService.create({
         firstName,

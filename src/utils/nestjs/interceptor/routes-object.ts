@@ -21,4 +21,9 @@ export const routes = {
     plural: 'Voluntários',
     gender: 'o',
   },
+  field: {
+    singular: 'Campo',
+    plural: 'Campos',
+    gender: 'o',
+  },
 } as Routes;

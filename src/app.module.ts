@@ -25,6 +25,7 @@ import { CacheControlInterceptor } from './cache-control.interceptor';
 import { ResponseInterceptor } from './response.interceptor';
 
 import { VolunteerModule } from './volunteer/volunteer.module';
+import { FieldModule } from './field/field.module';
 
 @Module({
   imports: [
@@ -64,6 +65,8 @@ import { VolunteerModule } from './volunteer/volunteer.module';
 
     // Specific
     VolunteerModule,
+
+    FieldModule,
   ],
   providers: [
     {
