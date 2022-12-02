@@ -110,12 +110,6 @@ describe('Volunteer Controller E2E', () => {
         .put(`${baseRoute}/${volunteer.id}`)
         .send({ lastName: 'Abreu' })
         .expect(401);
-
-      const res = await request(app.getHttpServer())
-        .get(`${baseRoute}/${volunteer.id}`)
-        .expect(200);
-
-      expect(res.body.data).toBeTruthy();
     });
 
     it('Should Not Remove a Volunteer', async () => {
@@ -260,7 +254,7 @@ describe('Volunteer Controller E2E', () => {
     const firstName = 'Mario';
     const joinedDate = new Date('2022-01-01');
 
-    it('Should Not Create a Volunteer', async () => {
+    it('Should Not Create a Volunteer (Missing Data)', async () => {
       const res = await request(app.getHttpServer())
         .post(baseRoute)
         .set('Authorization', `Bearer ${adminToken}`)

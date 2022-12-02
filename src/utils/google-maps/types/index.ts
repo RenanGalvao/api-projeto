@@ -297,4 +297,4 @@ export type InfoWindowOptions = {
 export type CollectionPoints = {
   marker: MarkerOptions;
   infoWindow: InfoWindowOptions;
-}[];
+}
