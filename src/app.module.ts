@@ -29,6 +29,7 @@ import { FieldModule } from './field/field.module';
 import { AgendaModule } from './agenda/agenda.module';
 import { AssistedFamilyModule } from './assisted-family/assisted-family.module';
 import { ChurchModule } from './church/church.module';
+import { CollaboratorModule } from './collaborator/collaborator.module';
 
 @Module({
   imports: [
@@ -76,6 +77,8 @@ import { ChurchModule } from './church/church.module';
     AssistedFamilyModule,
 
     ChurchModule,
+
+    CollaboratorModule,
   ],
   providers: [
     {
