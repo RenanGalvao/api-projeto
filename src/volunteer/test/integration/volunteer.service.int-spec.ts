@@ -86,7 +86,7 @@ describe('Volunteer Service Integration', () => {
     });
 
     const randomN = Math.ceil(Math.random() * ITEMS_PER_PAGE);
-    it(`Should Return a Work List With ${randomN} Items`, async () => {
+    it(`Should Return a Volunteer List With ${randomN} Items`, async () => {
       const volunteersToCreate = Array(ITEMS_PER_PAGE)
         .fill(0)
         .map(
