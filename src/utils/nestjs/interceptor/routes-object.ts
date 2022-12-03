@@ -30,5 +30,10 @@ export const routes = {
     singular: 'Event',
     plural: 'Eventos',
     gender: 'o'
+  },
+  'assisted-family': {
+    singular: 'Família assistida',
+    plural: 'Famílias assistidas',
+    gender: 'a'
   }
 } as Routes;
