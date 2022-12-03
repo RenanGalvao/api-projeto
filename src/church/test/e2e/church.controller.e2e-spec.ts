@@ -259,6 +259,96 @@ describe('Church Controller E2E', () => {
     });
   });
 
+  describe('Private Routes (as Logged ADMIN)', () => {
+    it('Should Not Create a Church (Missing Data)', async () => {
+      const res = await request(app.getHttpServer())
+        .post(baseRoute)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+
+      expect(res.body.data).toBeInstanceOf(Array);
+    });
+
+    it('Should Create a Church', async () => {
+      const res = await request(app.getHttpServer())
+        .post(baseRoute)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name,
+          description,
+          image,
+          field: field.id,
+        })
+        .expect(201);
+
+      expect(res.body.data.name).toBe(name);
+      expect(res.body.data.description).toBe(description);
+      expect(res.body.data.image).toBe(image);
+    });
+
+    it('Should Update a Church', async () => {
+      const church = await createChurch(name, description, image, field.id);
+      const newName = 'Igreja 1';
+
+      const res = await request(app.getHttpServer())
+        .put(`${baseRoute}/${church.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: newName })
+        .expect(200);
+
+      expect(res.body.data.name).toBe(newName);
+    });
+
+    it('Should Remove a Church', async () => {
+      const church = await createChurch(name, description, image, field.id);
+      await request(app.getHttpServer())
+        .delete(`${baseRoute}/${church.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`${baseRoute}/${church.id}`)
+        .expect(200);
+
+      expect(res.body.data).toBe(null);
+    });
+
+    it('Should Restore a Church', async () => {
+      const church = await createChurch(name, description, image, field.id);
+      await prisma.church.delete({ where: { id: church.id } });
+
+      await request(app.getHttpServer())
+        .put(`${baseRoute}/restore`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ ids: [church.id] })
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .get(`${baseRoute}/${church.id}`)
+        .expect(200);
+
+      expect(res.body.data).toBeTruthy();
+    });
+
+    it('Should HardRemove a Church', async () => {
+      const church = await createChurch(name, description, image, field.id);
+      await prisma.church.delete({ where: { id: church.id } });
+
+      await request(app.getHttpServer())
+        .delete(`${baseRoute}/hard-remove`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ ids: [church.id] })
+        .expect(200);
+
+      // Bypass Soft Delete
+      const query = prisma.church.findUnique({
+        where: { id: church.id },
+      });
+      const [churchExists] = await prisma.$transaction([query]);
+      expect(churchExists).toBeNull();
+    });
+  });
+
   describe('Public Routes (as Non Logged User)', () => {
     it(`Should Return a Church List With ${ITEMS_PER_PAGE} Items`, async () => {
       const churchesToCreate = Array(ITEMS_PER_PAGE)
