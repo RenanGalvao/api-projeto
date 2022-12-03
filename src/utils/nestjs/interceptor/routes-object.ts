@@ -29,11 +29,16 @@ export const routes = {
   agenda: {
     singular: 'Event',
     plural: 'Eventos',
-    gender: 'o'
+    gender: 'o',
   },
   'assisted-family': {
     singular: 'Família assistida',
     plural: 'Famílias assistidas',
-    gender: 'a'
-  }
+    gender: 'a',
+  },
+  church: {
+    singular: 'Igreja',
+    plural: 'Igrejas',
+    gender: 'a',
+  },
 } as Routes;
