@@ -145,12 +145,12 @@ describe('Assisted Family Service Integration', () => {
     });
 
     it('Should Return an Assisted Family', async () => {
-      const assistedFamilyCreated = await assistedFamilyService.create({
+      const assistedFamilyCreated = await createAssistedFamily(
         representative,
         period,
         group,
-        field: field.id,
-      });
+        field.id,
+      );
 
       const assistedFamily = await assistedFamilyService.findOne(
         assistedFamilyCreated.id,
@@ -173,12 +173,12 @@ describe('Assisted Family Service Integration', () => {
     });
 
     it('Should Update an Assisted Family', async () => {
-      const assistedFamily = await assistedFamilyService.create({
+      const assistedFamily = await createAssistedFamily(
         representative,
         period,
         group,
-        field: field.id,
-      });
+        field.id,
+      );
       const newRepresentative = 'Abreu';
 
       const assistedFamilyUpdated = await assistedFamilyService.update(
@@ -206,12 +206,12 @@ describe('Assisted Family Service Integration', () => {
     });
 
     it('Should Remove an Assisted family', async () => {
-      const assistedFamily = await assistedFamilyService.create({
+      const assistedFamily = await createAssistedFamily(
         representative,
         period,
         group,
-        field: field.id,
-      });
+        field.id,
+      );
 
       await assistedFamilyService.remove(assistedFamily.id);
       const isAssistedFamilyDeleted = await prisma.assistedFamily.findFirst({
@@ -226,12 +226,12 @@ describe('Assisted Family Service Integration', () => {
 
   describe('restore()', () => {
     it('Should Restore an Assisted Family', async () => {
-      const assistedFamily = await assistedFamilyService.create({
+      const assistedFamily = await createAssistedFamily(
         representative,
         period,
         group,
-        field: field.id,
-      });
+        field.id,
+      );
       await prisma.assistedFamily.delete({ where: { id: assistedFamily.id } });
 
       await assistedFamilyService.restore({ ids: [assistedFamily.id] });
@@ -247,12 +247,12 @@ describe('Assisted Family Service Integration', () => {
 
   describe('hardRemove()', () => {
     it('Should HardRemove an Assisted Family', async () => {
-      const assistedFamily = await assistedFamilyService.create({
+      const assistedFamily = await createAssistedFamily(
         representative,
         period,
         group,
-        field: field.id,
-      });
+        field.id,
+      );
       await prisma.assistedFamily.delete({ where: { id: assistedFamily.id } });
 
       await assistedFamilyService.hardRemove({ ids: [assistedFamily.id] });
