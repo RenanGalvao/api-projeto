@@ -31,6 +31,7 @@ import { AssistedFamilyModule } from './assisted-family/assisted-family.module';
 import { ChurchModule } from './church/church.module';
 import { CollaboratorModule } from './collaborator/collaborator.module';
 import { AnnouncementModule } from './announcement/announcement.module';
+import { OfferorFamilyModule } from './offeror-family/offeror-family.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { AnnouncementModule } from './announcement/announcement.module';
     ChurchModule,
     CollaboratorModule,
     AnnouncementModule,
+    OfferorFamilyModule,
   ],
   providers: [
     {
