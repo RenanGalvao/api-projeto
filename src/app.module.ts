@@ -32,6 +32,7 @@ import { ChurchModule } from './church/church.module';
 import { CollaboratorModule } from './collaborator/collaborator.module';
 import { AnnouncementModule } from './announcement/announcement.module';
 import { OfferorFamilyModule } from './offeror-family/offeror-family.module';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { OfferorFamilyModule } from './offeror-family/offeror-family.module';
     CollaboratorModule,
     AnnouncementModule,
     OfferorFamilyModule,
+    ReportModule,
   ],
   providers: [
     {

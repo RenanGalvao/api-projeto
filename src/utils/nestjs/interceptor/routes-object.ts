@@ -56,4 +56,9 @@ export const routes = {
     plural: 'Famílias ofertantes',
     gender: 'a',
   },
+  report: {
+    singular: 'Relatório',
+    plural: 'Relatórios',
+    gender: 'o',
+  },
 } as Routes;
