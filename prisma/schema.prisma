@@ -231,7 +231,7 @@ model Announcement {
   message     String
   attachments String[]
   date        DateTime
-  fixed       Boolean
+  fixed       Boolean  @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

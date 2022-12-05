@@ -30,6 +30,7 @@ import { AgendaModule } from './agenda/agenda.module';
 import { AssistedFamilyModule } from './assisted-family/assisted-family.module';
 import { ChurchModule } from './church/church.module';
 import { CollaboratorModule } from './collaborator/collaborator.module';
+import { AnnouncementModule } from './announcement/announcement.module';
 
 @Module({
   imports: [
@@ -69,16 +70,12 @@ import { CollaboratorModule } from './collaborator/collaborator.module';
 
     // Specific
     VolunteerModule,
-
     FieldModule,
-
     AgendaModule,
-
     AssistedFamilyModule,
-
     ChurchModule,
-
     CollaboratorModule,
+    AnnouncementModule,
   ],
   providers: [
     {

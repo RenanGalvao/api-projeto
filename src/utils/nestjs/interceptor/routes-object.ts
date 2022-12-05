@@ -44,6 +44,11 @@ export const routes = {
   collaborator: {
     singular: 'Colaborador',
     plural: 'Colaboradores',
-    gender: 'o'
-  }
+    gender: 'o',
+  },
+  announcement: {
+    singular: 'Anúncio',
+    plural: 'Anúncios',
+    gender: 'o',
+  },
 } as Routes;
