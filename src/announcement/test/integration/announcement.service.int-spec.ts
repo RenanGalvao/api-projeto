@@ -206,7 +206,7 @@ describe('Announcement Service Integration', () => {
       }
     });
 
-    it('Should Remove an Assisted family', async () => {
+    it('Should Remove an Announcement', async () => {
       const announcement = await createAnnouncement(
         title,
         message,

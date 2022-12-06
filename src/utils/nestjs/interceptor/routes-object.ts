@@ -61,4 +61,9 @@ export const routes = {
     plural: 'Relatórios',
     gender: 'o',
   },
+  testimonial: {
+    singular: 'Testemunho',
+    plural: 'Testemunhos',
+    gender: 'o',
+  },
 } as Routes;
