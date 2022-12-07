@@ -36,6 +36,7 @@ import { ReportModule } from './report/report.module';
 import { TestimonialModule } from './testimonial/testimonial.module';
 import { MonthlyMonetaryOfferModule } from './monthly-monetary-offer/monthly-monetary-offer.module';
 import { MonthlyFoodOfferModule } from './monthly-food-offer/monthly-food-offer.module';
+import { MonthlyMiscOfferModule } from './monthly-misc-offer/monthly-misc-offer.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { MonthlyFoodOfferModule } from './monthly-food-offer/monthly-food-offer.
     TestimonialModule,
     MonthlyMonetaryOfferModule,
     MonthlyFoodOfferModule,
+    MonthlyMiscOfferModule,
   ],
   providers: [
     {

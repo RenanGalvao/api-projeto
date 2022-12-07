@@ -217,7 +217,6 @@ describe('Log Controller E2E', () => {
       expect(isLogRestored.deleted).toBeNull();
     });
 
-    randomNLogs = Math.ceil(Math.random() * ITEMS_PER_PAGE);
     it('Should Remove All Logs', async () => {
       const logsToCreate = Array(ITEMS_PER_PAGE)
         .fill(0)
@@ -242,7 +241,6 @@ describe('Log Controller E2E', () => {
 
       const response = await request(app.getHttpServer())
         .get('/log')
-        .query({ itemsPerPage: randomNLogs })
         .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
@@ -250,9 +248,7 @@ describe('Log Controller E2E', () => {
       // Log.clean() gonna be logged
       expect(response.body.data).toHaveLength(1);
       expect(response.headers['x-total-count']).toBe(String(1));
-      expect(response.headers['x-total-pages']).toBe(
-        String(Math.ceil(+response.headers['x-total-count'] / randomNLogs)),
-      );
+      expect(response.headers['x-total-pages']).toBe(String(1));
     });
 
     it('Should Hard Remove Log', async () => {

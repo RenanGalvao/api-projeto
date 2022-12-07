@@ -76,4 +76,9 @@ export const routes = {
     plural: 'Ofertas alientícias mensais',
     gender: 'a',
   },
+  'monthly-misc-offer': {
+    singular: 'Oferta diversa mensal',
+    plural: 'Ofertas diversas mensais',
+    gender: 'a',
+  },
 } as Routes;
