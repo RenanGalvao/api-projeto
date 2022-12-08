@@ -19,20 +19,33 @@ export class UserService {
   constructor(private prismaService: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
+    let dataObj = {
+      firstName: createUserDto.firstName,
+      lastName: createUserDto.lastName,
+      email: createUserDto.email,
+      role: createUserDto.role ? createUserDto.role : Role.VOLUNTEER,
+      avatar: createUserDto.avatar,
+      lastAccess: new Date(),
+      hashedPassword: bcrypt.hashSync(
+        createUserDto.password,
+        bcrypt.genSaltSync(),
+      ),
+    } as any;
+
+    if (!createUserDto.role || createUserDto.role !== 'ADMIN') {
+      dataObj = {
+        ...dataObj,
+        field: {
+          connect: {
+            id: createUserDto.field,
+          },
+        },
+      };
+    }
+
     try {
       const newUser = await this.prismaService.user.create({
-        data: {
-          firstName: createUserDto.firstName,
-          lastName: createUserDto.lastName,
-          email: createUserDto.email,
-          role: createUserDto.role ? createUserDto.role : Role.VOLUNTEER,
-          avatar: createUserDto.avatar,
-          lastAccess: new Date(),
-          hashedPassword: bcrypt.hashSync(
-            createUserDto.password,
-            bcrypt.genSaltSync(),
-          ),
-        },
+        data: dataObj,
       });
 
       return PrismaUtils.exclude(
@@ -82,9 +95,17 @@ export class UserService {
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     try {
+      if (updateUserDto.field) {
+        updateUserDto.field = {
+          connect: { id: updateUserDto.field },
+        } as any;
+      } else {
+        delete updateUserDto.field;
+      }
+
       const user = await this.prismaService.user.update({
         where: { id },
-        data: updateUserDto,
+        data: updateUserDto as any,
       });
       return PrismaUtils.exclude(
         user,

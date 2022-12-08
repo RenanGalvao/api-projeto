@@ -1,6 +1,5 @@
-import { IsOptional } from 'class-validator';
-import { IsNotEmpty, IsString, IsEmail, IsEnum, MinLength } from 'src/utils';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsUUID, IsString, IsEmail, IsEnum, MinLength } from 'src/utils';
 import { Role } from '@prisma/client';
 
 export class CreateUserDto {
@@ -17,11 +16,13 @@ export class CreateUserDto {
   @MinLength(8)
   @IsString()
   password: string;
-  @ApiProperty({ enum: Role })
   @IsOptional()
   @IsEnum(Role, Object.values(Role))
   role?: Role;
   @IsOptional()
   @IsString()
   avatar?: string;
+  @ValidateIf((o: CreateUserDto) => !o.role || o.role !== Role.ADMIN)
+  @IsUUID('4')
+  field?: string;
 }

@@ -54,7 +54,7 @@ model User {
   deleted   DateTime?
 
   Logs    Log[]
-  Field   Field?  @relation(fields: [fieldId], references: [id])
+  field   Field?  @relation(fields: [fieldId], references: [id])
   fieldId String?
 
   @@map("users")

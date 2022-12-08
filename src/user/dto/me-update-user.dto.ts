@@ -4,7 +4,7 @@ import { IsString, MinLength } from 'src/utils';
 import { CreateUserDto } from './create-user.dto';
 
 export class MeUpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['email'] as const),
+  OmitType(CreateUserDto, ['email', 'field'] as const),
 ) {
   @IsOptional()
   @MinLength(8)

@@ -13,17 +13,30 @@ export async function createUser(
   email: string,
   hashedPassword: string,
   role: Role = Role.VOLUNTEER,
+  field: string = null,
 ) {
-  return await prismaService.user.create({
-    data: { firstName, email, hashedPassword, role },
-  });
+  if (!field) {
+    return await prismaService.user.create({
+      data: { firstName, email, hashedPassword, role },
+    });
+  } else {
+    return await prismaService.user.create({
+      data: {
+        firstName,
+        email,
+        hashedPassword,
+        role,
+        field: { connect: { id: field } },
+      },
+    });
+  }
 }
 
 export async function getToken(
   app: NestExpressApplication,
   email: string,
   password: string,
-  refreshToken: boolean = false
+  refreshToken: boolean = false,
 ) {
   return (
     await request(app.getHttpServer())
