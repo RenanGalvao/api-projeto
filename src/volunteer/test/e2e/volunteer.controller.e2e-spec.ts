@@ -1,14 +1,35 @@
-import { CACHE_MANAGER } from '@nestjs/common';
+import {
+  CacheInterceptor,
+  CacheModule,
+  CacheStore,
+  CACHE_MANAGER,
+} from '@nestjs/common';
 import { Field, Role, User, Volunteer } from '@prisma/client';
 import { Cache } from 'cache-manager';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Test } from '@nestjs/testing';
-import { AppModule } from 'src/app.module';
-import { createUser, createField, getToken, setAppConfig } from 'src/utils/test';
+import {
+  createUser,
+  createField,
+  getToken,
+  setAppConfig,
+} from 'src/utils/test';
 import * as bcrypt from 'bcrypt';
 import * as request from 'supertest';
 import { ITEMS_PER_PAGE } from 'src/constants';
 import { NestExpressApplication } from '@nestjs/platform-express';
+
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'src/config/configuration';
+import { redisStore } from 'cache-manager-redis-store';
+import { AuthModule } from 'src/auth/auth.module';
+import { UserModule } from 'src/user/user.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { VolunteerModule } from 'src/volunteer/volunteer.module';
+import { FieldModule } from 'src/field/field.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from 'src/response.interceptor';
+import { CacheControlInterceptor } from 'src/cache-control.interceptor';
 
 describe('Volunteer Controller E2E', () => {
   let app: NestExpressApplication;
@@ -24,6 +45,9 @@ describe('Volunteer Controller E2E', () => {
   const password = '12345678';
   const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
   const baseRoute = '/volunteer';
+
+  const firstName = 'Mario';
+  const joinedDate = new Date('2022-01-01');
 
   const createVolunteer = async (
     firstName: string,
@@ -44,7 +68,48 @@ describe('Volunteer Controller E2E', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        ConfigModule.forRoot({
+          load: [configuration],
+          isGlobal: true,
+        }),
+        // https://github.com/dabroek/node-cache-manager-redis-store/issues/53
+        CacheModule.registerAsync({
+          isGlobal: true,
+          inject: [ConfigService],
+          useFactory: async (config: ConfigService) => ({
+            store: (await redisStore({
+              url: config.get('REDIS_URL'),
+            })) as unknown as CacheStore,
+            ttl: config.get('redis.ttl'),
+            max: config.get('redis.max'),
+            isCacheableValue: (val: any) => val !== undefined && val !== null,
+          }),
+        }),
+
+        // Basic Routes
+        AuthModule,
+        PrismaModule,
+        UserModule,
+
+        // Specific
+        VolunteerModule,
+        FieldModule,
+      ],
+      providers: [
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: ResponseInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheControlInterceptor,
+        },
+      ],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -52,23 +117,6 @@ describe('Volunteer Controller E2E', () => {
     await app.init();
     prisma = moduleRef.get(PrismaService);
     cacheManager = moduleRef.get(CACHE_MANAGER);
-
-    user = await createUser(
-      prisma,
-      'João',
-      'volunteer@email.com',
-      hashedPassword,
-    );
-    userToken = await getToken(app, user.email, password);
-
-    admin = await createUser(
-      prisma,
-      'Admin',
-      'sigma@email.com',
-      hashedPassword,
-      Role.ADMIN,
-    );
-    adminToken = await getToken(app, admin.email, password);
   });
 
   afterAll(async () => {
@@ -87,12 +135,28 @@ describe('Volunteer Controller E2E', () => {
       'AMEBRRJ01',
       'Designação',
     );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'volunteer@email.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+    userToken = await getToken(app, user.email, password);
+
+    admin = await createUser(
+      prisma,
+      'Admin',
+      'sigma@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
+    adminToken = await getToken(app, admin.email, password);
   });
 
   describe('Private Routes (as Non Logged User)', () => {
-    const firstName = 'Mario';
-    const joinedDate = new Date('2022-01-01');
-
     it('Should Not Create a Volunteer', async () => {
       await request(app.getHttpServer())
         .post(baseRoute)
@@ -160,10 +224,7 @@ describe('Volunteer Controller E2E', () => {
   });
 
   describe('Private Routes (as Logged User)', () => {
-    const firstName = 'Mario';
-    const joinedDate = new Date('2022-01-01');
-
-    it('Should Not Create a Volunteer', async () => {
+    it('Should Not Create a Volunteer (Missing Data)', async () => {
       const res = await request(app.getHttpServer())
         .post(baseRoute)
         .set('Authorization', `Bearer ${userToken}`)
@@ -179,12 +240,34 @@ describe('Volunteer Controller E2E', () => {
         .send({
           firstName,
           joinedDate,
-          field: field.id,
         })
         .expect(201);
 
       expect(res.body.data.firstName).toBe(firstName);
       expect(res.body.data.joinedDate).toBe(joinedDate.toISOString());
+    });
+
+    it('Should Not Update a Volunteer (Different Field)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const volunteer = await createVolunteer(
+        firstName,
+        joinedDate,
+        differentField.id,
+      );
+      const lastName = 'Abreu';
+
+      await request(app.getHttpServer())
+        .put(`${baseRoute}/${volunteer.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ lastName })
+        .expect(403);
     });
 
     it('Should Update a Volunteer', async () => {
@@ -198,6 +281,27 @@ describe('Volunteer Controller E2E', () => {
         .expect(200);
 
       expect(res.body.data.lastName).toBe(lastName);
+    });
+
+    it('Should Not Remove a Volunteer (Different Field)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const volunteer = await createVolunteer(
+        firstName,
+        joinedDate,
+        differentField.id,
+      );
+
+      await request(app.getHttpServer())
+        .delete(`${baseRoute}/${volunteer.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
     });
 
     it('Should Remove a Volunteer', async () => {
@@ -251,9 +355,6 @@ describe('Volunteer Controller E2E', () => {
   });
 
   describe('Private Routes (as Logged ADMIN)', () => {
-    const firstName = 'Mario';
-    const joinedDate = new Date('2022-01-01');
-
     it('Should Not Create a Volunteer (Missing Data)', async () => {
       const res = await request(app.getHttpServer())
         .post(baseRoute)
