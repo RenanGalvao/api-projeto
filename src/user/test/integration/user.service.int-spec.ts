@@ -1,6 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { Role, User } from '@prisma/client';
+import { Field, Role, User } from '@prisma/client';
 import { AppModule } from 'src/app.module';
 import { ITEMS_PER_PAGE } from 'src/constants';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -8,12 +8,15 @@ import { UserService } from 'src/user/user.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { TEMPLATE } from 'src/constants';
+import { createField } from 'src/utils/test';
 
 jest.setTimeout(30 * 1_000);
 
 describe('User Service Integration', () => {
   let prisma: PrismaService;
   let userService: UserService;
+
+  let field: Field;
 
   const firstName = 'Jão';
   const email = 'user@example.com';
@@ -32,11 +35,25 @@ describe('User Service Integration', () => {
 
   beforeEach(async () => {
     await prisma.cleanDataBase();
+
+    field = await createField(
+      prisma,
+      'América',
+      'Brasil',
+      'Rio de Janeiro',
+      'AMEBRRJ01',
+      'Designação',
+    );
   });
 
   describe('create()', () => {
-    it('Should Create a User', async () => {
-      const user = await userService.create({ firstName, email, password });
+    it('Should Create an User', async () => {
+      const user = await userService.create({
+        firstName,
+        email,
+        password,
+        field: field.id,
+      });
 
       expect(user.firstName).toBe(firstName);
       expect(user.email).toBe(email);
@@ -45,17 +62,18 @@ describe('User Service Integration', () => {
       expect(user.lastAccess).toBeDefined();
     });
 
-    it('Should Not Create a User (Duplicated)', async () => {
+    it('Should Not Create an User (Duplicated)', async () => {
       await prisma.user.create({
         data: {
           firstName,
           email,
           hashedPassword: 'notarealhash',
+          fieldId: field.id
         },
       });
 
       try {
-        await userService.create({ firstName, email, password });
+        await userService.create({ firstName, email, password, field: field.id });
       } catch (error) {
         expect(error).toBeInstanceOf(ConflictException);
         expect(error.response.message).toBeDefined();

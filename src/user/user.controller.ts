@@ -56,7 +56,6 @@ export class UserController {
     return this.userService.findOne(id);
   }
 
-  @Roles(Role.ADMIN)
   @Put('restore')
   restore(@Body() restoreDto: RestoreDto) {
     return this.userService.restore(restoreDto);
@@ -66,8 +65,7 @@ export class UserController {
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.userService.update(id, updateUserDto);
   }
-
-  @Roles(Role.ADMIN)
+  
   @Delete('hard-remove')
   hardRemove(@Body() hardRemoveDto: HardRemoveDto) {
     return this.userService.hardRemove(hardRemoveDto);

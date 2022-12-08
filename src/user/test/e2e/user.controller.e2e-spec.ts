@@ -1,5 +1,5 @@
 import { CACHE_MANAGER } from '@nestjs/common';
-import { Role, User } from '@prisma/client';
+import { Field, Role, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { Test } from '@nestjs/testing';
@@ -7,7 +7,12 @@ import { AppModule } from 'src/app.module';
 import * as request from 'supertest';
 import { ITEMS_PER_PAGE } from 'src/constants';
 import { Cache } from 'cache-manager';
-import { createUser, getToken, setAppConfig } from 'src/utils/test';
+import {
+  createField,
+  createUser,
+  getToken,
+  setAppConfig,
+} from 'src/utils/test';
 import { NestExpressApplication } from '@nestjs/platform-express';
 
 jest.setTimeout(30 * 1_000);
@@ -17,12 +22,17 @@ describe('User Controller E2E', () => {
   let prisma: PrismaService;
   let cacheManager: Cache;
 
+  let field: Field;
   let user: User;
   let admin: User;
   let userToken: string;
   let adminToken: string;
+
   const password = '12345678';
   const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
+
+  const firstName = 'João';
+  const email = 'joao@email.com';
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -35,7 +45,25 @@ describe('User Controller E2E', () => {
     prisma = moduleRef.get(PrismaService);
     cacheManager = moduleRef.get(CACHE_MANAGER);
 
-    user = await createUser(prisma, 'Jão', 'user@example.com', hashedPassword);
+    field = await createField(
+      prisma,
+      'América',
+      'Brasil',
+      'Rio de Janeiro',
+      'AMEBRRJ01',
+      'Designação',
+    );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'user@example.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+    userToken = await getToken(app, user.email, password);
+
     admin = await createUser(
       prisma,
       'Sigma',
@@ -43,8 +71,6 @@ describe('User Controller E2E', () => {
       hashedPassword,
       Role.ADMIN,
     );
-
-    userToken = await getToken(app, user.email, password);
     adminToken = await getToken(app, admin.email, password);
   });
 
@@ -55,17 +81,27 @@ describe('User Controller E2E', () => {
   beforeEach(async () => {
     await prisma.cleanDataBase();
     await cacheManager.reset();
+
+    field = await createField(
+      prisma,
+      'América',
+      'Brasil',
+      'Rio de Janeiro',
+      'AMEBRRJ01',
+      'Designação',
+    );
   });
 
   describe('Private Routes (as User)', () => {
     it('Should Not Create an User', async () => {
       await request(app.getHttpServer())
         .post('/user')
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .send({
-          email: 'another.user@example.com',
+          firstName,
+          email,
           password,
+          field: field.id,
         })
         .expect(403);
     });
@@ -73,50 +109,28 @@ describe('User Controller E2E', () => {
     it('Should Not Return an User List', async () => {
       await request(app.getHttpServer())
         .get('/user')
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .expect(403);
     });
 
-    it('Should Not Return User', async () => {
-      const user = await createUser(
-        prisma,
-        'Jão',
-        'another.user@example.com',
-        hashedPassword,
-      );
+    it('Should Not Return an User', async () => {
       await request(app.getHttpServer())
         .get(`/user/${user.id}`)
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .expect(403);
     });
 
     it('Should Not Update User', async () => {
-      const user = await createUser(
-        prisma,
-        'Jão',
-        'another.user@example.com',
-        hashedPassword,
-      );
       await request(app.getHttpServer())
         .put(`/user/${user.id}`)
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .send({ firstName: 'João' })
         .expect(403);
     });
 
     it('Should Not Remove User', async () => {
-      const user = await createUser(
-        prisma,
-        'Jão',
-        'another.user@example.com',
-        hashedPassword,
-      );
       await request(app.getHttpServer())
         .delete(`/user/${user.id}`)
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .expect(403);
     });
@@ -124,15 +138,16 @@ describe('User Controller E2E', () => {
     it('Should Return Own User', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
       const userToken = await getToken(app, user.email, password);
 
       const response = await request(app.getHttpServer())
         .get('/user/me')
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .expect(200);
 
@@ -147,15 +162,16 @@ describe('User Controller E2E', () => {
       const newPassword = 'anotherone';
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
       const userToken = await getToken(app, user.email, password);
 
       const response = await request(app.getHttpServer())
         .put('/user/me')
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .send({
           firstName: newName,
@@ -177,15 +193,16 @@ describe('User Controller E2E', () => {
     it('Should Remove Own User', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
       const userToken = await getToken(app, user.email, password);
 
       const response = await request(app.getHttpServer())
         .delete('/user/me')
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .expect(200);
       expect(response.body.data.hashedPassword).toBeUndefined();
@@ -204,9 +221,11 @@ describe('User Controller E2E', () => {
     it('Should Not Restore User', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
       await prisma.user.delete({ where: { email: user.email } });
 
@@ -215,7 +234,6 @@ describe('User Controller E2E', () => {
         .send({
           ids: [user.id],
         })
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .expect(403);
 
@@ -231,9 +249,11 @@ describe('User Controller E2E', () => {
     it('Should Not Hard Remove Work', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
       await prisma.user.delete({ where: { email: user.email } });
 
@@ -242,7 +262,6 @@ describe('User Controller E2E', () => {
         .send({
           ids: [user.id],
         })
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${userToken}`)
         .expect(403);
 
@@ -256,16 +275,16 @@ describe('User Controller E2E', () => {
     });
   });
 
-  describe('Private Routes (as Admin)', () => {
+  describe('Private Routes (as ADMIN)', () => {
     it('Should Create an User', async () => {
       const response = await request(app.getHttpServer())
         .post('/user')
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .send({
-          firstName: 'Jão',
-          email: 'user@example.com',
+          firstName,
+          email,
           password,
+          field: field.id,
         })
         .expect(201);
 
@@ -284,6 +303,7 @@ describe('User Controller E2E', () => {
               firstName: `João ${i}`,
               email: `user${i}@example.com`,
               hashedPassword,
+              fieldId: field.id,
             } as User),
         );
       await prisma.user.createMany({
@@ -292,7 +312,6 @@ describe('User Controller E2E', () => {
 
       const response = await request(app.getHttpServer())
         .get('/user')
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
@@ -314,6 +333,7 @@ describe('User Controller E2E', () => {
               firstName: `João ${i}`,
               email: `user${i}@example.com`,
               hashedPassword,
+              fieldId: field.id,
             } as User),
         );
       await prisma.user.createMany({
@@ -323,7 +343,7 @@ describe('User Controller E2E', () => {
       const response = await request(app.getHttpServer())
         .get('/user')
         .query({ itemsPerPage: randomNUsers })
-        .set('Content-type', 'application/json')
+
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
@@ -337,16 +357,18 @@ describe('User Controller E2E', () => {
       );
     });
 
-    it('Should Return User', async () => {
+    it('Should Return an User', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
       const response = await request(app.getHttpServer())
         .get(`/user/${user.id}`)
-        .set('Content-Type', 'application/json')
+
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
@@ -356,37 +378,40 @@ describe('User Controller E2E', () => {
       expect(response.body.data.deleted).toBeUndefined();
     });
 
-    it('Should Update User', async () => {
-      const firstName = 'Jack';
+    it('Should Update an User', async () => {
+      const newFirstName = 'Jack';
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
+
       const response = await request(app.getHttpServer())
         .put(`/user/${user.id}`)
-        .set('Content-Type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
-        .send({ firstName })
+        .send({ firstName: newFirstName, field: user.fieldId })
         .expect(200);
 
-      expect(response.body.data.firstName).toBe(firstName);
+      expect(response.body.data.firstName).toBe(newFirstName);
       expect(response.body.data.hashedPassword).toBeUndefined();
       expect(response.body.data.hashedRefreshToken).toBeUndefined();
       expect(response.body.data.deleted).toBeUndefined();
     });
 
-    it('Should Remove User', async () => {
+    it('Should Remove an User', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
       const response = await request(app.getHttpServer())
         .delete(`/user/${user.id}`)
-        .set('Content-Type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
@@ -414,7 +439,7 @@ describe('User Controller E2E', () => {
       const adminToken = await getToken(app, admin.email, password);
       const response = await request(app.getHttpServer())
         .get('/user/me')
-        .set('Content-Type', 'application/json')
+
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
@@ -425,7 +450,7 @@ describe('User Controller E2E', () => {
     });
 
     it('Should Update Own User', async () => {
-      const firstName = 'Brabo';
+      const newFirstName = 'Brabo';
       const admin = await createUser(
         prisma,
         'Sigma',
@@ -436,12 +461,11 @@ describe('User Controller E2E', () => {
       const adminToken = await getToken(app, admin.email, password);
       const response = await request(app.getHttpServer())
         .put('/user/me')
-        .set('Content-Type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
-        .send({ firstName })
+        .send({ firstName: newFirstName })
         .expect(200);
 
-      expect(response.body.data.firstName).toBe(firstName);
+      expect(response.body.data.firstName).toBe(newFirstName);
       expect(response.body.data.hashedPassword).toBeUndefined();
       expect(response.body.data.hashedRefreshToken).toBeUndefined();
       expect(response.body.data.deleted).toBeUndefined();
@@ -458,7 +482,6 @@ describe('User Controller E2E', () => {
       const adminToken = await getToken(app, admin.email, password);
       const response = await request(app.getHttpServer())
         .delete('/user/me')
-        .set('Content-Type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
@@ -478,20 +501,17 @@ describe('User Controller E2E', () => {
     it('Should Restore User', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
-      await request(app.getHttpServer())
-        .delete(`/user/${user.id}`)
-        .set('Content-type', 'application/json')
-        .set('Authorization', `bearer ${adminToken}`)
-        .expect(200);
+      await prisma.user.delete({ where: { id: user.id } });
 
       await request(app.getHttpServer())
         .put(`/user/restore`)
         .send({ ids: [user.id] })
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
@@ -507,20 +527,17 @@ describe('User Controller E2E', () => {
     it('Should Hard Remove User', async () => {
       const user = await createUser(
         prisma,
-        'Jão',
-        'user@example.com',
+        firstName,
+        email,
         hashedPassword,
+        Role.VOLUNTEER,
+        field.id,
       );
-      await request(app.getHttpServer())
-        .delete(`/user/${user.id}`)
-        .set('Content-type', 'application/json')
-        .set('Authorization', `bearer ${adminToken}`)
-        .expect(200);
+      await prisma.user.delete({ where: { id: user.id } });
 
       await request(app.getHttpServer())
         .delete('/user/hard-remove')
         .send({ ids: [user.id] })
-        .set('Content-type', 'application/json')
         .set('Authorization', `bearer ${adminToken}`)
         .expect(200);
 
