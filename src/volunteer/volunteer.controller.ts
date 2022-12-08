@@ -10,9 +10,9 @@ import {
 } from '@nestjs/common';
 import { VolunteerService } from './volunteer.service';
 import { CreateVolunteerDto, UpdateVolunteerDto } from './dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { Roles } from 'src/auth/roles';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { PaginationDto } from 'src/prisma/dto';
 
 @Controller('volunteer')
@@ -20,8 +20,8 @@ export class VolunteerController {
   constructor(private readonly volunteerService: VolunteerService) {}
 
   @Post()
-  create(@Body() createVolunteerDto: CreateVolunteerDto) {
-    return this.volunteerService.create(createVolunteerDto);
+  create(@Jwt() user: User, @Body() createVolunteerDto: CreateVolunteerDto) {
+    return this.volunteerService.create(user, createVolunteerDto);
   }
 
   @Public()
@@ -45,9 +45,10 @@ export class VolunteerController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateVolunteerDto: UpdateVolunteerDto,
   ) {
-    return this.volunteerService.update(id, updateVolunteerDto);
+    return this.volunteerService.update(id, user, updateVolunteerDto);
   }
 
   @Roles(Role.ADMIN)
@@ -57,7 +58,7 @@ export class VolunteerController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.volunteerService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User,) {
+    return this.volunteerService.remove(id, user);
   }
 }

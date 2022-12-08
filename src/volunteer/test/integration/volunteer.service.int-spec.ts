@@ -1,18 +1,48 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { Field, Volunteer } from '@prisma/client';
+import { Field, Role, User, Volunteer } from '@prisma/client';
 import { AppModule } from 'src/app.module';
-import { ITEMS_PER_PAGE, TEMPLATE } from 'src/constants';
+import { ITEMS_PER_PAGE, MESSAGE, TEMPLATE } from 'src/constants';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { createField } from 'src/utils/test';
+import { createField, createUser } from 'src/utils/test';
 import { VolunteerService } from 'src/volunteer/volunteer.service';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
 
 describe('Volunteer Service Integration', () => {
   let prisma: PrismaService;
   let volunteerService: VolunteerService;
 
   let field: Field;
+  let user: User;
+  let admin: User;
+
+  const password = '12345678';
+  const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
+
+  const firstName = 'João';
+  const joinedDate = new Date('2022-01-01');
+
+  const createVolunteer = async (
+    firstName: string,
+    joinedDate: Date,
+    field: string,
+  ) =>
+    await prisma.volunteer.create({
+      data: {
+        firstName,
+        joinedDate,
+        field: {
+          connect: {
+            id: field,
+          },
+        },
+      },
+    });
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -37,21 +67,60 @@ describe('Volunteer Service Integration', () => {
       'AMEBRRJ01',
       'Designação',
     );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'volunteer@email.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+
+    admin = await createUser(
+      prisma,
+      'admin',
+      'sigma@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
   });
 
   describe('create()', () => {
-    const firstName = 'João';
-    const joinedDate = new Date('2022-01-01');
-
-    it('Should Create a Volunteer', async () => {
-      const volunteer = await volunteerService.create({
+    it('Should Create a Volunteer (as USER)', async () => {
+      const volunteer = await volunteerService.create(user, {
         firstName,
         joinedDate,
-        field: field.id,
       });
 
       expect(volunteer.firstName).toBe(firstName);
       expect(volunteer.joinedDate).toStrictEqual(joinedDate);
+      expect(volunteer.field.id).toBe(field.id);
+    });
+
+    it('Should Not Create a Volunteer (as ADMIN && Missing Data)', async () => {
+      try {
+        await volunteerService.create(admin, {
+          firstName,
+          joinedDate,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.response.message).toBe(
+          TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+        );
+      }
+    });
+
+    it('Should Create a Volunteer (as ADMIN)', async () => {
+      const volunteer = await volunteerService.create(admin, {
+        firstName,
+        joinedDate,
+        field: field.id,
+      });
+      expect(volunteer.firstName).toBe(firstName);
+      expect(volunteer.joinedDate).toStrictEqual(joinedDate);
+      expect(volunteer.field.id).toBe(field.id);
     });
   });
 
@@ -121,27 +190,24 @@ describe('Volunteer Service Integration', () => {
     });
 
     it('Should Return a Volunteer', async () => {
-      const firstName = 'João';
-      const joinedDate = new Date('2022-01-01');
-      const volunteerCreated = await volunteerService.create({
+      const volunteerCreated = await createVolunteer(
         firstName,
         joinedDate,
-        field: field.id,
-      });
+        field.id,
+      );
 
       const volunteer = await volunteerService.findOne(volunteerCreated.id);
-      expect(volunteer).toBeDefined();
+      expect(volunteer.firstName).toBe(firstName);
+      expect(volunteer.joinedDate).toStrictEqual(joinedDate);
+      expect(volunteer.field.id).toBe(field.id);
     });
   });
 
   describe('update()', () => {
-    const firstName = 'João';
-    const joinedDate = new Date('2022-01-01');
-
     it('Should Not Update Volunteer (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await volunteerService.update(randomId, { lastName: 'lol' });
+        await volunteerService.update(randomId, user, { lastName: 'lol' });
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -150,30 +216,78 @@ describe('Volunteer Service Integration', () => {
       }
     });
 
-    it('Should Update Volunteer', async () => {
-      const newFirstName = 'Phelp';
-      const volunteer = await volunteerService.create({
-        firstName,
-        joinedDate,
-        field: field.id,
-      });
+    it('Should Not Update Volunteer (as USER && Different Field)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const volunteer = await createVolunteer(
+          firstName,
+          joinedDate,
+          differentField.id,
+        );
+        const newFirstName = 'Phelp';
 
-      const volunteerUpdated = await volunteerService.update(volunteer.id, {
-        firstName: newFirstName,
-      });
+        await volunteerService.update(volunteer.id, user, {
+          firstName: newFirstName,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
+
+    it('Should Update Volunteer (as USER)', async () => {
+      const newFirstName = 'Phelp';
+      const volunteer = await createVolunteer(firstName, joinedDate, field.id);
+
+      const volunteerUpdated = await volunteerService.update(
+        volunteer.id,
+        user,
+        {
+          firstName: newFirstName,
+        },
+      );
       expect(volunteerUpdated).toBeDefined();
       expect(volunteerUpdated.firstName).toBe(newFirstName);
+    });
+
+    it('Should Update Volunteer (as ADMIN)', async () => {
+      const newFirstName = 'Phelp';
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const volunteer = await createVolunteer(firstName, joinedDate, field.id);
+
+      const volunteerUpdated = await volunteerService.update(
+        volunteer.id,
+        admin,
+        {
+          firstName: newFirstName,
+          field: differentField.id,
+        },
+      );
+      expect(volunteerUpdated).toBeDefined();
+      expect(volunteerUpdated.firstName).toBe(newFirstName);
+      expect(volunteerUpdated.field.id).toBe(differentField.id);
     });
   });
 
   describe('remove()', () => {
-    const firstName = 'João';
-    const joinedDate = new Date('2022-01-01');
-
     it('Should Not Remove Volunteer (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await volunteerService.remove(randomId);
+        await volunteerService.remove(randomId, user);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -182,14 +296,45 @@ describe('Volunteer Service Integration', () => {
       }
     });
 
-    it('Should Remove Volunteer', async () => {
-      const volunteer = await volunteerService.create({
-        firstName,
-        joinedDate,
-        field: field.id,
-      });
+    it('Should Not Remove Volunteer (as USER && Different Field)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const volunteer = await createVolunteer(
+          firstName,
+          joinedDate,
+          differentField.id,
+        );
+        await volunteerService.remove(volunteer.id, user);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
 
-      await volunteerService.remove(volunteer.id);
+    it('Should Remove Volunteer (as User)', async () => {
+      const volunteer = await createVolunteer(firstName, joinedDate, field.id);
+
+      await volunteerService.remove(volunteer.id, user);
+      const isVolunteerDeleted = await prisma.volunteer.findFirst({
+        where: {
+          id: volunteer.id,
+          deleted: { lte: new Date() },
+        },
+      });
+      expect(isVolunteerDeleted.deleted).toBeDefined();
+    });
+
+    it('Should Remove Volunteer (as ADMIN)', async () => {
+      const volunteer = await createVolunteer(firstName, joinedDate, field.id);
+
+      await volunteerService.remove(volunteer.id, admin);
       const isVolunteerDeleted = await prisma.volunteer.findFirst({
         where: {
           id: volunteer.id,
@@ -201,16 +346,9 @@ describe('Volunteer Service Integration', () => {
   });
 
   describe('restore()', () => {
-    const firstName = 'João';
-    const joinedDate = new Date('2022-01-01');
-
     it('Should Restore Volunteer', async () => {
-      const volunteer = await volunteerService.create({
-        firstName,
-        joinedDate,
-        field: field.id,
-      });
-      await volunteerService.remove(volunteer.id);
+      const volunteer = await createVolunteer(firstName, joinedDate, field.id);
+      await prisma.volunteer.delete({ where: { id: volunteer.id } });
 
       await volunteerService.restore({ ids: [volunteer.id] });
       const isVolunteerRestored = await prisma.volunteer.findFirst({
@@ -224,16 +362,9 @@ describe('Volunteer Service Integration', () => {
   });
 
   describe('hardRemove()', () => {
-    const firstName = 'João';
-    const joinedDate = new Date('2022-01-01');
-
     it('Should Hard Remove Entry', async () => {
-      const volunteer = await volunteerService.create({
-        firstName,
-        joinedDate,
-        field: field.id,
-      });
-      await volunteerService.remove(volunteer.id);
+      const volunteer = await createVolunteer(firstName, joinedDate, field.id);
+      await prisma.volunteer.delete({ where: { id: volunteer.id } });
 
       await volunteerService.hardRemove({ ids: [volunteer.id] });
       const isVolunteerRemoved = await prisma.volunteer.findFirst({

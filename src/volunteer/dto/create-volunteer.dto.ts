@@ -34,7 +34,7 @@ export class CreateVolunteerDto {
   @IsOptional()
   @IsString()
   priest?: string;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }
