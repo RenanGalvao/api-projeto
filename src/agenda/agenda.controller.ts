@@ -8,10 +8,10 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { Roles } from 'src/auth/roles';
 import { PaginationDto } from 'src/prisma/dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { AgendaService } from './agenda.service';
 import { CreateAgendaDto, UpdateAgendaDto } from './dto';
 
@@ -20,8 +20,8 @@ export class AgendaController {
   constructor(private readonly agendaService: AgendaService) {}
 
   @Post()
-  create(@Body() createAgendaDto: CreateAgendaDto) {
-    return this.agendaService.create(createAgendaDto);
+  create(@Jwt() user: User, @Body() createAgendaDto: CreateAgendaDto) {
+    return this.agendaService.create(user, createAgendaDto);
   }
 
   @Public()
@@ -43,8 +43,12 @@ export class AgendaController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateAgendaDto: UpdateAgendaDto) {
-    return this.agendaService.update(id, updateAgendaDto);
+  update(
+    @Param('id') id: string,
+    @Jwt() user: User,
+    @Body() updateAgendaDto: UpdateAgendaDto,
+  ) {
+    return this.agendaService.update(id, user, updateAgendaDto);
   }
 
   @Roles(Role.ADMIN)
@@ -54,7 +58,7 @@ export class AgendaController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.agendaService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.agendaService.remove(id, user);
   }
 }

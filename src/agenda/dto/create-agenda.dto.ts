@@ -14,7 +14,7 @@ export class CreateAgendaDto {
   @IsNotEmpty()
   @IsDate()
   date: Date;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }
