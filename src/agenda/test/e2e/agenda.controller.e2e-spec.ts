@@ -184,6 +184,12 @@ describe('Agenda Controller E2E', () => {
       await request(app.getHttpServer())
         .delete(`${baseRoute}/${event.id}`)
         .expect(401);
+
+      const res = await request(app.getHttpServer())
+        .get(`${baseRoute}/${event.id}`)
+        .expect(200);
+
+      expect(res.body.data).toBeTruthy();
     });
 
     it('Should Not Restore an Event', async () => {

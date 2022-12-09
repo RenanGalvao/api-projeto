@@ -1,18 +1,46 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AssistedFamily, AssistedFamilyGroup, Field } from '@prisma/client';
-import { AppModule } from 'src/app.module';
+import {
+  AssistedFamily,
+  AssistedFamilyGroup,
+  Field,
+  Role,
+  User,
+} from '@prisma/client';
 import { AssistedFamilyService } from 'src/assisted-family/assisted-family.service';
-import { ITEMS_PER_PAGE, TEMPLATE } from 'src/constants';
+import { ITEMS_PER_PAGE, MESSAGE, TEMPLATE } from 'src/constants';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { createField } from 'src/utils/test';
+import { createField, createUser } from 'src/utils/test';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
+
+import { CacheInterceptor, CacheModule, CacheStore } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'src/config/configuration';
+import { redisStore } from 'cache-manager-redis-store';
+import { AuthModule } from 'src/auth/auth.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { UserModule } from 'src/user/user.module';
+import { FieldModule } from 'src/field/field.module';
+import { AssistedFamilyModule } from 'src/assisted-family/assisted-family.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from 'src/response.interceptor';
+import { CacheControlInterceptor } from 'src/cache-control.interceptor';
 
 describe('Assisted Family Service Integration', () => {
   let prisma: PrismaService;
   let assistedFamilyService: AssistedFamilyService;
 
   let field: Field;
+  let user: User;
+  let admin: User;
+
+  const password = '12345678';
+  const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
 
   const representative = 'Mário';
   const period = 'Período';
@@ -39,7 +67,48 @@ describe('Assisted Family Service Integration', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        ConfigModule.forRoot({
+          load: [configuration],
+          isGlobal: true,
+        }),
+        // https://github.com/dabroek/node-cache-manager-redis-store/issues/53
+        CacheModule.registerAsync({
+          isGlobal: true,
+          inject: [ConfigService],
+          useFactory: async (config: ConfigService) => ({
+            store: (await redisStore({
+              url: config.get('REDIS_URL'),
+            })) as unknown as CacheStore,
+            ttl: config.get('redis.ttl'),
+            max: config.get('redis.max'),
+            isCacheableValue: (val: any) => val !== undefined && val !== null,
+          }),
+        }),
+
+        // Basic Routes
+        AuthModule,
+        PrismaModule,
+        UserModule,
+
+        // Specific
+        FieldModule,
+        AssistedFamilyModule,
+      ],
+      providers: [
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: ResponseInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheControlInterceptor,
+        },
+      ],
     }).compile();
 
     prisma = moduleRef.get(PrismaService);
@@ -60,11 +129,56 @@ describe('Assisted Family Service Integration', () => {
       'AMEBRRJ01',
       'Designação',
     );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'volunteer@email.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+
+    admin = await createUser(
+      prisma,
+      'admin',
+      'sigma@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
   });
 
   describe('create()', () => {
-    it('Should Create an Assisted Family', async () => {
-      const assistedFamily = await assistedFamilyService.create({
+    it('Should Create an Assisted Family (as USER)', async () => {
+      const assistedFamily = await assistedFamilyService.create(user, {
+        representative,
+        period,
+        group,
+      });
+
+      expect(assistedFamily.representative).toBe(representative);
+      expect(assistedFamily.period).toBe(period);
+      expect(assistedFamily.group).toBe(group);
+      expect(assistedFamily.field.id).toBe(field.id);
+    });
+
+    it('Should Not Create An Assited Family (as ADMIN && Missing Data)', async () => {
+      try {
+        await assistedFamilyService.create(admin, {
+          representative,
+          period,
+          group,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.response.message).toBe(
+          TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+        );
+      }
+    });
+
+    it('Should Create an Assisted Family (as ADMIN)', async () => {
+      const assistedFamily = await assistedFamilyService.create(admin, {
         representative,
         period,
         group,
@@ -74,6 +188,7 @@ describe('Assisted Family Service Integration', () => {
       expect(assistedFamily.representative).toBe(representative);
       expect(assistedFamily.period).toBe(period);
       expect(assistedFamily.group).toBe(group);
+      expect(assistedFamily.field.id).toBe(field.id);
     });
   });
 
@@ -155,7 +270,10 @@ describe('Assisted Family Service Integration', () => {
       const assistedFamily = await assistedFamilyService.findOne(
         assistedFamilyCreated.id,
       );
-      expect(assistedFamily).toBeDefined();
+      expect(assistedFamily.representative).toBe(representative);
+      expect(assistedFamily.period).toBe(period);
+      expect(assistedFamily.group).toBe(group);
+      expect(assistedFamily.field.id).toBe(field.id);
     });
   });
 
@@ -163,7 +281,9 @@ describe('Assisted Family Service Integration', () => {
     it('Should Not Update an Assisted Family (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await assistedFamilyService.update(randomId, { representative: 'lol' });
+        await assistedFamilyService.update(randomId, user, {
+          representative: 'lol',
+        });
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -172,7 +292,32 @@ describe('Assisted Family Service Integration', () => {
       }
     });
 
-    it('Should Update an Assisted Family', async () => {
+    it('Should Not Update an Assisted Family (as USER && Different Field)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const assistedFamily = await createAssistedFamily(
+          representative,
+          period,
+          group,
+          differentField.id,
+        );
+        await assistedFamilyService.update(assistedFamily.id, user, {
+          representative: 'lol',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
+
+    it('Should Update an Assisted Family (as USER)', async () => {
       const assistedFamily = await createAssistedFamily(
         representative,
         period,
@@ -183,6 +328,7 @@ describe('Assisted Family Service Integration', () => {
 
       const assistedFamilyUpdated = await assistedFamilyService.update(
         assistedFamily.id,
+        user,
         {
           representative: newRepresentative,
         },
@@ -190,13 +336,43 @@ describe('Assisted Family Service Integration', () => {
       expect(assistedFamilyUpdated).toBeDefined();
       expect(assistedFamilyUpdated.representative).toBe(newRepresentative);
     });
+
+    it('Should Update an Assisted Family (as ADMIN)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const assistedFamily = await createAssistedFamily(
+        representative,
+        period,
+        group,
+        field.id,
+      );
+      const newRepresentative = 'Abreu';
+
+      const assistedFamilyUpdated = await assistedFamilyService.update(
+        assistedFamily.id,
+        admin,
+        {
+          representative: newRepresentative,
+          field: differentField.id,
+        },
+      );
+      expect(assistedFamilyUpdated).toBeDefined();
+      expect(assistedFamilyUpdated.representative).toBe(newRepresentative);
+      expect(assistedFamilyUpdated.field.id).toBe(differentField.id);
+    });
   });
 
   describe('remove()', () => {
     it('Should Not Remove an Assisted Family (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await assistedFamilyService.remove(randomId);
+        await assistedFamilyService.remove(randomId, user);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -205,7 +381,31 @@ describe('Assisted Family Service Integration', () => {
       }
     });
 
-    it('Should Remove an Assisted family', async () => {
+    it('Should Not Remove an Assisted Family (as USER && Different Field)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const assistedFamily = await createAssistedFamily(
+          representative,
+          period,
+          group,
+          differentField.id,
+        );
+
+        await assistedFamilyService.remove(assistedFamily.id, user);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
+
+    it('Should Remove an Assisted family (as USER)', async () => {
       const assistedFamily = await createAssistedFamily(
         representative,
         period,
@@ -213,7 +413,25 @@ describe('Assisted Family Service Integration', () => {
         field.id,
       );
 
-      await assistedFamilyService.remove(assistedFamily.id);
+      await assistedFamilyService.remove(assistedFamily.id, user);
+      const isAssistedFamilyDeleted = await prisma.assistedFamily.findFirst({
+        where: {
+          id: assistedFamily.id,
+          deleted: { lte: new Date() },
+        },
+      });
+      expect(isAssistedFamilyDeleted.deleted).toBeDefined();
+    });
+
+    it('Should Remove an Assisted family (as ADMIN)', async () => {
+      const assistedFamily = await createAssistedFamily(
+        representative,
+        period,
+        group,
+        field.id,
+      );
+
+      await assistedFamilyService.remove(assistedFamily.id, admin);
       const isAssistedFamilyDeleted = await prisma.assistedFamily.findFirst({
         where: {
           id: assistedFamily.id,

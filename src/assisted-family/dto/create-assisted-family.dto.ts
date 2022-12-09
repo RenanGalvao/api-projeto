@@ -1,4 +1,5 @@
 import { AssistedFamilyGroup } from '@prisma/client';
+import { IsOptional } from 'class-validator';
 import { IsEnum, IsNotEmpty, IsString, IsUUID } from 'src/utils';
 
 export class CreateAssistedFamilyDto {
@@ -11,7 +12,7 @@ export class CreateAssistedFamilyDto {
   @IsNotEmpty()
   @IsEnum(AssistedFamilyGroup, Object.keys(AssistedFamilyGroup))
   group: AssistedFamilyGroup;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }
