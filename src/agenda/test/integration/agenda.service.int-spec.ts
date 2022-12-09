@@ -324,7 +324,7 @@ describe('Agenda Service Integration', () => {
         'AMEBRSP01',
         'Designação',
       );
-      const event = await createAgenda(title, message, date, differentField.id);
+      const event = await createAgenda(title, message, date, field.id);
       const newTitle = 'Novo Título';
 
       const eventUpdated = await agendaService.update(event.id, admin, {

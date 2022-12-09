@@ -8,10 +8,10 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { Roles } from 'src/auth/roles';
 import { PaginationDto } from 'src/prisma/dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { ChurchService } from './church.service';
 import { CreateChurchDto, UpdateChurchDto } from './dto';
 
@@ -20,8 +20,8 @@ export class ChurchController {
   constructor(private readonly churchService: ChurchService) {}
 
   @Post()
-  create(@Body() createChurchDto: CreateChurchDto) {
-    return this.churchService.create(createChurchDto);
+  create(@Jwt() user: User, @Body() createChurchDto: CreateChurchDto) {
+    return this.churchService.create(user, createChurchDto);
   }
 
   @Public()
@@ -43,8 +43,12 @@ export class ChurchController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateChurchDto: UpdateChurchDto) {
-    return this.churchService.update(id, updateChurchDto);
+  update(
+    @Param('id') id: string,
+    @Jwt() user: User,
+    @Body() updateChurchDto: UpdateChurchDto,
+  ) {
+    return this.churchService.update(id, user, updateChurchDto);
   }
 
   @Roles(Role.ADMIN)
@@ -54,7 +58,7 @@ export class ChurchController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.churchService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.churchService.remove(id, user);
   }
 }
