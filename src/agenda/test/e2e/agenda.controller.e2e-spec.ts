@@ -6,14 +6,30 @@ import * as bcrypt from 'bcrypt';
 import * as request from 'supertest';
 import { ITEMS_PER_PAGE } from 'src/constants';
 import { Test } from '@nestjs/testing';
-import { AppModule } from 'src/app.module';
 import {
   createField,
   createUser,
   getToken,
   setAppConfig,
 } from 'src/utils/test';
-import { CACHE_MANAGER } from '@nestjs/common';
+
+import {
+  CacheInterceptor,
+  CacheModule,
+  CacheStore,
+  CACHE_MANAGER,
+} from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'src/config/configuration';
+import { redisStore } from 'cache-manager-redis-store';
+import { AuthModule } from 'src/auth/auth.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { UserModule } from 'src/user/user.module';
+import { FieldModule } from 'src/field/field.module';
+import { AgendaModule } from 'src/agenda/agenda.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from 'src/response.interceptor';
+import { CacheControlInterceptor } from 'src/cache-control.interceptor';
 
 describe('Agenda Controller E2E', () => {
   let app: NestExpressApplication;
@@ -55,7 +71,48 @@ describe('Agenda Controller E2E', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        ConfigModule.forRoot({
+          load: [configuration],
+          isGlobal: true,
+        }),
+        // https://github.com/dabroek/node-cache-manager-redis-store/issues/53
+        CacheModule.registerAsync({
+          isGlobal: true,
+          inject: [ConfigService],
+          useFactory: async (config: ConfigService) => ({
+            store: (await redisStore({
+              url: config.get('REDIS_URL'),
+            })) as unknown as CacheStore,
+            ttl: config.get('redis.ttl'),
+            max: config.get('redis.max'),
+            isCacheableValue: (val: any) => val !== undefined && val !== null,
+          }),
+        }),
+
+        // Basic Routes
+        AuthModule,
+        PrismaModule,
+        UserModule,
+
+        // Specific
+        FieldModule,
+        AgendaModule,
+      ],
+      providers: [
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: ResponseInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheControlInterceptor,
+        },
+      ],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -63,23 +120,6 @@ describe('Agenda Controller E2E', () => {
     await app.init();
     prisma = moduleRef.get(PrismaService);
     cacheManager = moduleRef.get(CACHE_MANAGER);
-
-    user = await createUser(
-      prisma,
-      'João',
-      'volunteer@email.com',
-      hashedPassword,
-    );
-    userToken = await getToken(app, user.email, password);
-
-    admin = await createUser(
-      prisma,
-      'Admin',
-      'sigma@email.com',
-      hashedPassword,
-      Role.ADMIN,
-    );
-    adminToken = await getToken(app, admin.email, password);
   });
 
   afterAll(async () => {
@@ -98,6 +138,25 @@ describe('Agenda Controller E2E', () => {
       'AMEBRRJ01',
       'Designação',
     );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'volunteer@email.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+    userToken = await getToken(app, user.email, password);
+
+    admin = await createUser(
+      prisma,
+      'Admin',
+      'sigma@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
+    adminToken = await getToken(app, admin.email, password);
   });
 
   describe('Private Routes (as Non Logged User)', () => {
@@ -179,13 +238,31 @@ describe('Agenda Controller E2E', () => {
           title,
           message,
           date,
-          field: field.id,
         })
         .expect(201);
 
       expect(res.body.data.title).toBe(title);
       expect(res.body.data.message).toBe(message);
       expect(res.body.data.date).toBe(date.toISOString());
+    });
+
+    it('Should Not Update an Event (Different Field)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const event = await createAgenda(title, message, date, differentField.id);
+      const newTitle = 'Novo Título';
+
+      await request(app.getHttpServer())
+        .put(`${baseRoute}/${event.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ title: newTitle })
+        .expect(403);
     });
 
     it('Should Update an Event', async () => {
@@ -199,6 +276,23 @@ describe('Agenda Controller E2E', () => {
         .expect(200);
 
       expect(res.body.data.title).toBe(newTitle);
+    });
+
+    it('Should Not Remove an Event (Different Field)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const event = await createAgenda(title, message, date, differentField.id);
+
+      await request(app.getHttpServer())
+        .delete(`${baseRoute}/${event.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
     });
 
     it('Should Remove an Event', async () => {
