@@ -1,3 +1,4 @@
+import { IsOptional } from 'class-validator';
 import { IsNotEmpty, IsString, IsUUID } from 'src/utils';
 
 export class CreateChurchDto {
@@ -10,7 +11,7 @@ export class CreateChurchDto {
   @IsNotEmpty()
   @IsString()
   image: string;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }
