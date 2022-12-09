@@ -8,10 +8,10 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { Roles } from 'src/auth/roles';
 import { PaginationDto } from 'src/prisma/dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { AssistedFamilyService } from './assisted-family.service';
 import { CreateAssistedFamilyDto, UpdateAssistedFamilyDto } from './dto';
 
@@ -20,8 +20,11 @@ export class AssistedFamilyController {
   constructor(private readonly assistedFamilyService: AssistedFamilyService) {}
 
   @Post()
-  create(@Body() createAssistedFamilyDto: CreateAssistedFamilyDto) {
-    return this.assistedFamilyService.create(createAssistedFamilyDto);
+  create(
+    @Jwt() user: User,
+    @Body() createAssistedFamilyDto: CreateAssistedFamilyDto,
+  ) {
+    return this.assistedFamilyService.create(user, createAssistedFamilyDto);
   }
 
   @Public()
@@ -45,9 +48,10 @@ export class AssistedFamilyController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateAssistedFamilyDto: UpdateAssistedFamilyDto,
   ) {
-    return this.assistedFamilyService.update(id, updateAssistedFamilyDto);
+    return this.assistedFamilyService.update(id, user, updateAssistedFamilyDto);
   }
 
   @Roles(Role.ADMIN)
@@ -57,7 +61,7 @@ export class AssistedFamilyController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.assistedFamilyService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.assistedFamilyService.remove(id, user);
   }
 }

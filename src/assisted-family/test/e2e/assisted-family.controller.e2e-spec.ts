@@ -11,15 +11,31 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import * as request from 'supertest';
 import { Test } from '@nestjs/testing';
-import { AppModule } from 'src/app.module';
 import {
   createField,
   createUser,
   getToken,
   setAppConfig,
 } from 'src/utils/test';
-import { CACHE_MANAGER } from '@nestjs/common';
+
+import {
+  CacheInterceptor,
+  CacheModule,
+  CacheStore,
+  CACHE_MANAGER,
+} from '@nestjs/common';
 import { ITEMS_PER_PAGE } from 'src/constants';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'src/config/configuration';
+import { redisStore } from 'cache-manager-redis-store';
+import { AuthModule } from 'src/auth/auth.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { UserModule } from 'src/user/user.module';
+import { FieldModule } from 'src/field/field.module';
+import { AssistedFamilyModule } from 'src/assisted-family/assisted-family.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from 'src/response.interceptor';
+import { CacheControlInterceptor } from 'src/cache-control.interceptor';
 
 describe('Assisted Family Controller E2E', () => {
   let app: NestExpressApplication;
@@ -61,7 +77,48 @@ describe('Assisted Family Controller E2E', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        ConfigModule.forRoot({
+          load: [configuration],
+          isGlobal: true,
+        }),
+        // https://github.com/dabroek/node-cache-manager-redis-store/issues/53
+        CacheModule.registerAsync({
+          isGlobal: true,
+          inject: [ConfigService],
+          useFactory: async (config: ConfigService) => ({
+            store: (await redisStore({
+              url: config.get('REDIS_URL'),
+            })) as unknown as CacheStore,
+            ttl: config.get('redis.ttl'),
+            max: config.get('redis.max'),
+            isCacheableValue: (val: any) => val !== undefined && val !== null,
+          }),
+        }),
+
+        // Basic Routes
+        AuthModule,
+        PrismaModule,
+        UserModule,
+
+        // Specific
+        FieldModule,
+        AssistedFamilyModule,
+      ],
+      providers: [
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: ResponseInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheControlInterceptor,
+        },
+      ],
     }).compile();
 
     app = moduleRef.createNestApplication();
@@ -69,23 +126,6 @@ describe('Assisted Family Controller E2E', () => {
     await app.init();
     prisma = moduleRef.get(PrismaService);
     cacheManager = moduleRef.get(CACHE_MANAGER);
-
-    user = await createUser(
-      prisma,
-      'João',
-      'volunteer@email.com',
-      hashedPassword,
-    );
-    userToken = await getToken(app, user.email, password);
-
-    admin = await createUser(
-      prisma,
-      'Admin',
-      'sigma@email.com',
-      hashedPassword,
-      Role.ADMIN,
-    );
-    adminToken = await getToken(app, admin.email, password);
   });
 
   afterAll(async () => {
@@ -104,6 +144,25 @@ describe('Assisted Family Controller E2E', () => {
       'AMEBRRJ01',
       'Designação',
     );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'volunteer@email.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+    userToken = await getToken(app, user.email, password);
+
+    admin = await createUser(
+      prisma,
+      'Admin',
+      'sigma@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
+    adminToken = await getToken(app, admin.email, password);
   });
 
   describe('Private Routes (as Non Logged User)', () => {
@@ -196,7 +255,7 @@ describe('Assisted Family Controller E2E', () => {
   });
 
   describe('Private Routes (as Logged User)', () => {
-    it('Should Not Create an Assisted Family', async () => {
+    it('Should Not Create an Assisted Family (Missing Data)', async () => {
       const res = await request(app.getHttpServer())
         .post(baseRoute)
         .set('Authorization', `Bearer ${userToken}`)
@@ -213,13 +272,36 @@ describe('Assisted Family Controller E2E', () => {
           representative,
           period,
           group,
-          field: field.id,
         })
         .expect(201);
 
       expect(res.body.data.representative).toBe(representative);
       expect(res.body.data.period).toBe(period);
       expect(res.body.data.group).toBe(group);
+    });
+
+    it('Should Not Update an Assisted Family (Different Field)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const assistedFamily = await createAssistedFamily(
+        representative,
+        period,
+        group,
+        differentField.id,
+      );
+      const newRepresentative = 'Abreu';
+
+      await request(app.getHttpServer())
+        .put(`${baseRoute}/${assistedFamily.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ representative: newRepresentative })
+        .expect(403);
     });
 
     it('Should Update an Assisted Family', async () => {
@@ -238,6 +320,27 @@ describe('Assisted Family Controller E2E', () => {
         .expect(200);
 
       expect(res.body.data.representative).toBe(newRepresentative);
+    });
+
+    it('Should Not Remove an Assisted Family (Different Field)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const assistedFamily = await createAssistedFamily(
+        representative,
+        period,
+        group,
+        differentField.id,
+      );
+      await request(app.getHttpServer())
+        .delete(`${baseRoute}/${assistedFamily.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
     });
 
     it('Should Remove an Assisted Family', async () => {
@@ -306,7 +409,7 @@ describe('Assisted Family Controller E2E', () => {
   });
 
   describe('Private Routes (as Logged ADMIN)', () => {
-    it('Should Not Create an Assisted Family', async () => {
+    it('Should Not Create an Assisted Family (Missing Data)', async () => {
       const res = await request(app.getHttpServer())
         .post(baseRoute)
         .set('Authorization', `Bearer ${adminToken}`)
