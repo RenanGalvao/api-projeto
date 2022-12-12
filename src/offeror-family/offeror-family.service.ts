@@ -1,6 +1,13 @@
-import { Injectable, NotFoundException, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Query,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { TEMPLATE } from 'src/constants';
+import { MESSAGE, TEMPLATE } from 'src/constants';
 import { PaginationDto } from 'src/prisma/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { HardRemoveDto, RestoreDto } from 'src/utils';
@@ -10,30 +17,60 @@ import { CreateOfferorFamilyDto, UpdateOfferorFamilyDto } from './dto';
 export class OfferorFamilyService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async create(createOfferorFamilyDto: CreateOfferorFamilyDto) {
-    return await this.prismaService.offerorFamily.create({
-      data: {
+  async create(user: User, createOfferorFamilyDto: CreateOfferorFamilyDto) {
+    let dataObj = {};
+
+    if (user.role !== 'ADMIN') {
+      dataObj = {
+        ...createOfferorFamilyDto,
+        field: {
+          connect: {
+            id: user.fieldId,
+          },
+        },
+      };
+    } else {
+      if (!createOfferorFamilyDto.field) {
+        throw new BadRequestException({
+          message: TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+          data: {},
+        });
+      }
+
+      dataObj = {
         ...createOfferorFamilyDto,
         field: {
           connect: {
             id: createOfferorFamilyDto.field,
           },
         },
-      },
+      };
+    }
+
+    return await this.prismaService.offerorFamily.create({
+      data: dataObj as any,
+      include: { field: true },
     });
   }
 
   async findAll(@Query() query?: PaginationDto) {
-    return await this.prismaService.paginatedQuery('offerorFamily', query);
+    return await this.prismaService.paginatedQuery('offerorFamily', query, {
+      include: { field: true },
+    });
   }
 
   async findOne(id: string) {
     return await this.prismaService.offerorFamily.findUnique({
       where: { id },
+      include: { field: true },
     });
   }
 
-  async update(id: string, updateOfferorFamilyDto: UpdateOfferorFamilyDto) {
+  async update(
+    id: string,
+    user: User,
+    updateOfferorFamilyDto: UpdateOfferorFamilyDto,
+  ) {
     try {
       if (updateOfferorFamilyDto.field) {
         updateOfferorFamilyDto.field = {
@@ -43,9 +80,28 @@ export class OfferorFamilyService {
         delete updateOfferorFamilyDto.field;
       }
 
+      if (user.role !== 'ADMIN') {
+        const offerorFamily = await this.prismaService.offerorFamily.findFirst({
+          where: { id },
+        });
+
+        if (!offerorFamily) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND('família ofertante', 'a'),
+            data: {},
+          });
+        } else if (offerorFamily.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.offerorFamily.update({
         where: { id },
         data: updateOfferorFamilyDto as any,
+        include: { field: true },
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -60,8 +116,26 @@ export class OfferorFamilyService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: User) {
     try {
+      if (user.role !== 'ADMIN') {
+        const offerorFamily = await this.prismaService.offerorFamily.findFirst({
+          where: { id },
+        });
+
+        if (!offerorFamily) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND('família ofertante', 'a'),
+            data: {},
+          });
+        } else if (offerorFamily.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.offerorFamily.delete({
         where: { id },
       });

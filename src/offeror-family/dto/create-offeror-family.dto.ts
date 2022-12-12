@@ -15,7 +15,7 @@ export class CreateOfferorFamilyDto {
   @IsNotEmpty()
   @IsEnum(OfferorFamilyGroup, Object.keys(OfferorFamilyGroup))
   group: OfferorFamilyGroup;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }

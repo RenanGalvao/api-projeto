@@ -12,16 +12,16 @@ import { OfferorFamilyService } from './offeror-family.service';
 import { CreateOfferorFamilyDto, UpdateOfferorFamilyDto } from './dto';
 import { PaginationDto } from 'src/prisma/dto';
 import { Roles } from 'src/auth/roles';
-import { Role } from '@prisma/client';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { Role, User } from '@prisma/client';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 
 @Controller('offeror-family')
 export class OfferorFamilyController {
   constructor(private readonly offerorFamilyService: OfferorFamilyService) {}
 
   @Post()
-  create(@Body() createOfferorFamilyDto: CreateOfferorFamilyDto) {
-    return this.offerorFamilyService.create(createOfferorFamilyDto);
+  create(@Jwt() user: User, @Body() createOfferorFamilyDto: CreateOfferorFamilyDto) {
+    return this.offerorFamilyService.create(user, createOfferorFamilyDto);
   }
 
   @Public()
@@ -45,9 +45,10 @@ export class OfferorFamilyController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateOfferorFamilyDto: UpdateOfferorFamilyDto,
   ) {
-    return this.offerorFamilyService.update(id, updateOfferorFamilyDto);
+    return this.offerorFamilyService.update(id, user, updateOfferorFamilyDto);
   }
 
   @Roles(Role.ADMIN)
@@ -57,7 +58,7 @@ export class OfferorFamilyController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.offerorFamilyService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.offerorFamilyService.remove(id, user);
   }
 }
