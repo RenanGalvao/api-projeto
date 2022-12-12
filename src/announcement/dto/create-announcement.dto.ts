@@ -17,7 +17,7 @@ export class CreateAnnouncementDto {
   @IsOptional()
   @IsBoolean()
   fixed?: boolean;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }
