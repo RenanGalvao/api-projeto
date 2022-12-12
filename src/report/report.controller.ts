@@ -10,18 +10,18 @@ import {
 } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { CreateReportDto, UpdateReportDto } from './dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { PaginationDto } from 'src/prisma/dto';
 import { Roles } from 'src/auth/roles';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 
 @Controller('report')
 export class ReportController {
   constructor(private readonly reportService: ReportService) {}
 
   @Post()
-  create(@Body() createReportDto: CreateReportDto) {
-    return this.reportService.create(createReportDto);
+  create(@Jwt() user: User, @Body() createReportDto: CreateReportDto) {
+    return this.reportService.create(user, createReportDto);
   }
 
   @Public()
@@ -43,8 +43,8 @@ export class ReportController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateReportDto: UpdateReportDto) {
-    return this.reportService.update(id, updateReportDto);
+  update(@Param('id') id: string, @Jwt() user: User, @Body() updateReportDto: UpdateReportDto) {
+    return this.reportService.update(id, user, updateReportDto);
   }
 
   @Roles(Role.ADMIN)
@@ -54,7 +54,7 @@ export class ReportController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.reportService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.reportService.remove(id, user);
   }
 }
