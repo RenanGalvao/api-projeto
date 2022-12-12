@@ -8,10 +8,10 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { Roles } from 'src/auth/roles';
 import { PaginationDto } from 'src/prisma/dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { CollaboratorService } from './collaborator.service';
 import { CreateCollaboratorDto, UpdateCollaboratorDto } from './dto';
 
@@ -20,8 +20,8 @@ export class CollaboratorController {
   constructor(private readonly collaboratorService: CollaboratorService) {}
 
   @Post()
-  create(@Body() createCollaboratorDto: CreateCollaboratorDto) {
-    return this.collaboratorService.create(createCollaboratorDto);
+  create(@Jwt() user: User, @Body() createCollaboratorDto: CreateCollaboratorDto) {
+    return this.collaboratorService.create(user, createCollaboratorDto);
   }
 
   @Public()
@@ -45,9 +45,10 @@ export class CollaboratorController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateCollaboratorDto: UpdateCollaboratorDto,
   ) {
-    return this.collaboratorService.update(id, updateCollaboratorDto);
+    return this.collaboratorService.update(id, user, updateCollaboratorDto);
   }
 
   @Roles(Role.ADMIN)
@@ -57,7 +58,7 @@ export class CollaboratorController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.collaboratorService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.collaboratorService.remove(id, user);
   }
 }

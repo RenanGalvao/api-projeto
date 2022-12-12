@@ -1,17 +1,43 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  CacheInterceptor,
+  CacheModule,
+  CacheStore,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { Collaborator, Field } from '@prisma/client';
+import { Collaborator, Field, Role, User } from '@prisma/client';
 import { AppModule } from 'src/app.module';
 import { CollaboratorService } from 'src/collaborator/collaborator.service';
-import { ITEMS_PER_PAGE, TEMPLATE } from 'src/constants';
+import { ITEMS_PER_PAGE, MESSAGE, TEMPLATE } from 'src/constants';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { createField } from 'src/utils/test';
+import { createField, createUser } from 'src/utils/test';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
+
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'src/config/configuration';
+import { redisStore } from 'cache-manager-redis-store';
+import { AuthModule } from 'src/auth/auth.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { UserModule } from 'src/user/user.module';
+import { FieldModule } from 'src/field/field.module';
+import { CollaboratorModule } from 'src/collaborator/collaborator.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from 'src/response.interceptor';
+import { CacheControlInterceptor } from 'src/cache-control.interceptor';
 
 describe('Collaborator Service Integration', () => {
   let prisma: PrismaService;
   let collaboratorService: CollaboratorService;
+
   let field: Field;
+  let user: User;
+  let admin: User;
+
+  const password = '12345678';
+  const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
 
   const firstName = 'João';
   const description = 'Descrição';
@@ -35,7 +61,48 @@ describe('Collaborator Service Integration', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        ConfigModule.forRoot({
+          load: [configuration],
+          isGlobal: true,
+        }),
+        // https://github.com/dabroek/node-cache-manager-redis-store/issues/53
+        CacheModule.registerAsync({
+          isGlobal: true,
+          inject: [ConfigService],
+          useFactory: async (config: ConfigService) => ({
+            store: (await redisStore({
+              url: config.get('REDIS_URL'),
+            })) as unknown as CacheStore,
+            ttl: config.get('redis.ttl'),
+            max: config.get('redis.max'),
+            isCacheableValue: (val: any) => val !== undefined && val !== null,
+          }),
+        }),
+
+        // Basic Routes
+        AuthModule,
+        PrismaModule,
+        UserModule,
+
+        // Specific
+        FieldModule,
+        CollaboratorModule,
+      ],
+      providers: [
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: ResponseInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheControlInterceptor,
+        },
+      ],
     }).compile();
 
     prisma = moduleRef.get(PrismaService);
@@ -56,11 +123,53 @@ describe('Collaborator Service Integration', () => {
       'AMEBRRJ01',
       'Designação',
     );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'volunteer@email.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+
+    admin = await createUser(
+      prisma,
+      'admin',
+      'sigma@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
   });
 
   describe('create()', () => {
-    it('Should Create a Collaborator', async () => {
-      const collaborator = await collaboratorService.create({
+    it('Should Create a Collaborator (as USER)', async () => {
+      const collaborator = await collaboratorService.create(user, {
+        firstName,
+        description,
+      });
+
+      expect(collaborator.firstName).toBe(firstName);
+      expect(collaborator.description).toBe(description);
+      expect(collaborator.field.id).toBe(field.id);
+    });
+
+    it('Should Not Create aa Collaborator (as ADMIN && Missing Data)', async () => {
+      try {
+        await collaboratorService.create(admin, {
+          firstName,
+          description,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.response.message).toBe(
+          TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+        );
+      }
+    });
+
+    it('Should Create a Collaborator (as ADMIN)', async () => {
+      const collaborator = await collaboratorService.create(admin, {
         firstName,
         description,
         field: field.id,
@@ -68,6 +177,7 @@ describe('Collaborator Service Integration', () => {
 
       expect(collaborator.firstName).toBe(firstName);
       expect(collaborator.description).toBe(description);
+      expect(collaborator.field.id).toBe(field.id);
     });
   });
 
@@ -154,7 +264,7 @@ describe('Collaborator Service Integration', () => {
     it('Should Not Update a Collaborator (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await collaboratorService.update(randomId, { firstName: 'lol' });
+        await collaboratorService.update(randomId, user, { firstName: 'lol' });
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -163,7 +273,31 @@ describe('Collaborator Service Integration', () => {
       }
     });
 
-    it('Should Update a Collaborator', async () => {
+    it('Should Not Update a Collaborator (as USER && Different Field)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const collaborator = await createCollaborator(
+          firstName,
+          description,
+          differentField.id,
+        );
+        await collaboratorService.update(collaborator.id, user, {
+          firstName: 'lol',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
+
+    it('Should Update a Collaborator (as USER)', async () => {
       const collaborator = await createCollaborator(
         firstName,
         description,
@@ -173,6 +307,7 @@ describe('Collaborator Service Integration', () => {
 
       const collaboratorUpdated = await collaboratorService.update(
         collaborator.id,
+        user,
         {
           firstName: newFirstName,
         },
@@ -180,13 +315,42 @@ describe('Collaborator Service Integration', () => {
       expect(collaboratorUpdated).toBeDefined();
       expect(collaboratorUpdated.firstName).toBe(newFirstName);
     });
+
+    it('Should Update a Collaborator (as ADMIN)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const collaborator = await createCollaborator(
+        firstName,
+        description,
+        field.id,
+      );
+      const newFirstName = 'Abreu';
+
+      const collaboratorUpdated = await collaboratorService.update(
+        collaborator.id,
+        user,
+        {
+          firstName: newFirstName,
+          field: differentField.id,
+        },
+      );
+      expect(collaboratorUpdated).toBeDefined();
+      expect(collaboratorUpdated.firstName).toBe(newFirstName);
+      expect(collaboratorUpdated.field.id).toBe(differentField.id);
+    });
   });
 
   describe('remove()', () => {
     it('Should Not Remove a Collaborator (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await collaboratorService.remove(randomId);
+        await collaboratorService.remove(randomId, user);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -195,13 +359,52 @@ describe('Collaborator Service Integration', () => {
       }
     });
 
-    it('Should Remove a Collaborator', async () => {
+    it('Should Not Remove a Collaborator (as USER && Different Field)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const collaborator = await createCollaborator(
+          firstName,
+          description,
+          differentField.id,
+        );
+        await collaboratorService.remove(collaborator.id, user);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
+
+    it('Should Remove a Collaborator (as USER)', async () => {
       const collaborator = await createCollaborator(
         firstName,
         description,
         field.id,
       );
-      await collaboratorService.remove(collaborator.id);
+      await collaboratorService.remove(collaborator.id, user);
+
+      const isCollaboratorDeleted = await prisma.collaborator.findFirst({
+        where: {
+          id: collaborator.id,
+          deleted: { lte: new Date() },
+        },
+      });
+      expect(isCollaboratorDeleted.deleted).toBeDefined();
+    });
+
+    it('Should Remove a Collaborator (as ADMIN)', async () => {
+      const collaborator = await createCollaborator(
+        firstName,
+        description,
+        field.id,
+      );
+      await collaboratorService.remove(collaborator.id, admin);
 
       const isCollaboratorDeleted = await prisma.collaborator.findFirst({
         where: {

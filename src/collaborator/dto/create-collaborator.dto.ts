@@ -14,7 +14,7 @@ export class CreateCollaboratorDto {
   @IsNotEmpty()
   @IsString()
   description: string;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }
