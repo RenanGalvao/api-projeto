@@ -1,3 +1,4 @@
+import { IsOptional } from 'class-validator';
 import { IsEmail, IsNotEmpty, IsString, IsUUID } from 'src/utils';
 
 export class CreateTestimonialDto {
@@ -10,7 +11,7 @@ export class CreateTestimonialDto {
   @IsNotEmpty()
   @IsString()
   text: string;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }
