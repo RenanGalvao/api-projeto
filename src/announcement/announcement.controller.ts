@@ -8,10 +8,10 @@ import {
   Delete,
   Query,
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { Roles } from 'src/auth/roles';
 import { PaginationDto } from 'src/prisma/dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { AnnouncementService } from './announcement.service';
 import { CreateAnnouncementDto, UpdateAnnouncementDto } from './dto';
 
@@ -20,8 +20,8 @@ export class AnnouncementController {
   constructor(private readonly announcementService: AnnouncementService) {}
 
   @Post()
-  create(@Body() createAnnouncementDto: CreateAnnouncementDto) {
-    return this.announcementService.create(createAnnouncementDto);
+  create(@Jwt() user: User, @Body() createAnnouncementDto: CreateAnnouncementDto) {
+    return this.announcementService.create(user, createAnnouncementDto);
   }
 
   @Public()
@@ -45,9 +45,10 @@ export class AnnouncementController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateAnnouncementDto: UpdateAnnouncementDto,
   ) {
-    return this.announcementService.update(id, updateAnnouncementDto);
+    return this.announcementService.update(id, user, updateAnnouncementDto);
   }
 
   @Roles(Role.ADMIN)
@@ -57,7 +58,7 @@ export class AnnouncementController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.announcementService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.announcementService.remove(id, user);
   }
 }
