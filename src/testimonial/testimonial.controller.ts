@@ -11,8 +11,8 @@ import {
 import { TestimonialService } from './testimonial.service';
 import { CreateTestimonialDto, UpdateTestimonialDto } from './dto';
 import { PaginationDto } from 'src/prisma/dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
-import { Role } from '@prisma/client';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
+import { Role, User } from '@prisma/client';
 import { Roles } from 'src/auth/roles';
 
 @Controller('testimonial')
@@ -20,8 +20,8 @@ export class TestimonialController {
   constructor(private readonly testimonialService: TestimonialService) {}
 
   @Post()
-  create(@Body() createTestimonialDto: CreateTestimonialDto) {
-    return this.testimonialService.create(createTestimonialDto);
+  create(@Jwt() user: User, @Body() createTestimonialDto: CreateTestimonialDto) {
+    return this.testimonialService.create(user, createTestimonialDto);
   }
 
   @Public()
@@ -45,9 +45,10 @@ export class TestimonialController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateTestimonialDto: UpdateTestimonialDto,
   ) {
-    return this.testimonialService.update(id, updateTestimonialDto);
+    return this.testimonialService.update(id, user, updateTestimonialDto);
   }
 
   @Roles(Role.ADMIN)
@@ -57,7 +58,7 @@ export class TestimonialController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.testimonialService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.testimonialService.remove(id, user);
   }
 }
