@@ -1,6 +1,13 @@
-import { Injectable, NotFoundException, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Query,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { TEMPLATE } from 'src/constants';
+import { MESSAGE, TEMPLATE } from 'src/constants';
 import { PaginationDto } from 'src/prisma/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { HardRemoveDto, RestoreDto } from 'src/utils';
@@ -10,31 +17,61 @@ import { CreateMonthlyMiscOfferDto, UpdateMonthlyMiscOfferDto } from './dto';
 export class MonthlyMiscOfferService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async create(createMonthlyMiscOfferDto: CreateMonthlyMiscOfferDto) {
-    return await this.prismaService.monthlyMiscOffer.create({
-      data: {
+  async create(
+    user: User,
+    createMonthlyMiscOfferDto: CreateMonthlyMiscOfferDto,
+  ) {
+    let dataObj = {};
+
+    if (user.role !== 'ADMIN') {
+      dataObj = {
+        ...createMonthlyMiscOfferDto,
+        field: {
+          connect: {
+            id: user.fieldId,
+          },
+        },
+      };
+    } else {
+      if (!createMonthlyMiscOfferDto.field) {
+        throw new BadRequestException({
+          message: TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+          data: {},
+        });
+      }
+
+      dataObj = {
         ...createMonthlyMiscOfferDto,
         field: {
           connect: {
             id: createMonthlyMiscOfferDto.field,
           },
         },
-      },
+      };
+    }
+
+    return await this.prismaService.monthlyMiscOffer.create({
+      data: dataObj as any,
+      include: { field: true },
     });
   }
 
   async findAll(@Query() query?: PaginationDto) {
-    return await this.prismaService.paginatedQuery('monthlyMiscOffer', query);
+    return await this.prismaService.paginatedQuery('monthlyMiscOffer', query, {
+      include: { field: true },
+    });
   }
 
   async findOne(id: string) {
     return await this.prismaService.monthlyMiscOffer.findUnique({
       where: { id },
+      include: { field: true },
     });
   }
 
   async update(
     id: string,
+    user: User,
     updateMonthlyMiscOfferDto: UpdateMonthlyMiscOfferDto,
   ) {
     try {
@@ -46,9 +83,29 @@ export class MonthlyMiscOfferService {
         delete updateMonthlyMiscOfferDto.field;
       }
 
+      if (user.role !== 'ADMIN') {
+        const monthlyMiscOffer =
+          await this.prismaService.monthlyMiscOffer.findFirst({
+            where: { id },
+          });
+
+        if (!monthlyMiscOffer) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND('oferta diversa mensal', 'a'),
+            data: {},
+          });
+        } else if (monthlyMiscOffer.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.monthlyMiscOffer.update({
         where: { id },
         data: updateMonthlyMiscOfferDto as any,
+        include: { field: true },
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -63,8 +120,27 @@ export class MonthlyMiscOfferService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: User) {
     try {
+      if (user.role !== 'ADMIN') {
+        const monthlyMiscOffer =
+          await this.prismaService.monthlyMiscOffer.findFirst({
+            where: { id },
+          });
+
+        if (!monthlyMiscOffer) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND('oferta diversa mensal', 'a'),
+            data: {},
+          });
+        } else if (monthlyMiscOffer.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.monthlyMiscOffer.delete({
         where: { id },
       });

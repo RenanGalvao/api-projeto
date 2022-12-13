@@ -1,17 +1,40 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { Field, MonthlyMiscOffer } from '@prisma/client';
-import { AppModule } from 'src/app.module';
-import { ITEMS_PER_PAGE, TEMPLATE } from 'src/constants';
+import { Field, MonthlyMiscOffer, Role, User } from '@prisma/client';
+import { ITEMS_PER_PAGE, MESSAGE, TEMPLATE } from 'src/constants';
 import { MonthlyMiscOfferService } from 'src/monthly-misc-offer/monthly-misc-offer.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { createField } from 'src/utils/test';
+import { createField, createUser } from 'src/utils/test';
 import { v4 as uuidv4 } from 'uuid';
+import * as bcrypt from 'bcrypt';
+
+import { CacheInterceptor, CacheModule, CacheStore } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import configuration from 'src/config/configuration';
+import { redisStore } from 'cache-manager-redis-store';
+import { AuthModule } from 'src/auth/auth.module';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { UserModule } from 'src/user/user.module';
+import { FieldModule } from 'src/field/field.module';
+import { MonthlyMiscOfferModule } from 'src/monthly-misc-offer/monthly-misc-offer.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from 'src/response.interceptor';
+import { CacheControlInterceptor } from 'src/cache-control.interceptor';
 
 describe('Monthly Misc Offer Service Integration', () => {
   let prisma: PrismaService;
   let monthlyMiscOfferService: MonthlyMiscOfferService;
+
   let field: Field;
+  let user: User;
+  let admin: User;
+
+  const password = '12345678';
+  const hashedPassword = bcrypt.hashSync(password, bcrypt.genSaltSync());
 
   const month = 1;
   const year = 2022;
@@ -44,7 +67,48 @@ describe('Monthly Misc Offer Service Integration', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [
+        ConfigModule.forRoot({
+          load: [configuration],
+          isGlobal: true,
+        }),
+        // https://github.com/dabroek/node-cache-manager-redis-store/issues/53
+        CacheModule.registerAsync({
+          isGlobal: true,
+          inject: [ConfigService],
+          useFactory: async (config: ConfigService) => ({
+            store: (await redisStore({
+              url: config.get('REDIS_URL'),
+            })) as unknown as CacheStore,
+            ttl: config.get('redis.ttl'),
+            max: config.get('redis.max'),
+            isCacheableValue: (val: any) => val !== undefined && val !== null,
+          }),
+        }),
+
+        // Basic Routes
+        AuthModule,
+        PrismaModule,
+        UserModule,
+
+        // Specific
+        FieldModule,
+        MonthlyMiscOfferModule,
+      ],
+      providers: [
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: ResponseInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheInterceptor,
+        },
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CacheControlInterceptor,
+        },
+      ],
     }).compile();
 
     prisma = moduleRef.get(PrismaService);
@@ -65,11 +129,62 @@ describe('Monthly Misc Offer Service Integration', () => {
       'AMEBRRJ01',
       'Designação',
     );
+
+    user = await createUser(
+      prisma,
+      'João',
+      'volunteer@email.com',
+      hashedPassword,
+      Role.VOLUNTEER,
+      field.id,
+    );
+
+    admin = await createUser(
+      prisma,
+      'admin',
+      'sigma@email.com',
+      hashedPassword,
+      Role.ADMIN,
+    );
   });
 
   describe('create()', () => {
-    it('Should Create a Monthly Misc Offer', async () => {
-      const monthlyMiscOffer = await monthlyMiscOfferService.create({
+    it('Should Create a Monthly Misc Offer (as USER)', async () => {
+      const monthlyMiscOffer = await monthlyMiscOfferService.create(user, {
+        month,
+        year,
+        title,
+        description,
+        destination,
+      });
+
+      expect(monthlyMiscOffer.month).toBe(month);
+      expect(monthlyMiscOffer.year).toBe(year);
+      expect(monthlyMiscOffer.title).toBe(title);
+      expect(monthlyMiscOffer.description).toBe(description);
+      expect(monthlyMiscOffer.destination).toBe(destination);
+      expect(monthlyMiscOffer.field.id).toBe(field.id);
+    });
+
+    it('Should Not Create a Monthly Misc Offer (as ADMIN && Missing Data)', async () => {
+      try {
+        await monthlyMiscOfferService.create(admin, {
+          month,
+          year,
+          title,
+          description,
+          destination,
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect(error.response.message).toBe(
+          TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+        );
+      }
+    });
+
+    it('Should Create a Monthly Misc Offer (as ADMIN)', async () => {
+      const monthlyMiscOffer = await monthlyMiscOfferService.create(admin, {
         month,
         year,
         title,
@@ -83,6 +198,7 @@ describe('Monthly Misc Offer Service Integration', () => {
       expect(monthlyMiscOffer.title).toBe(title);
       expect(monthlyMiscOffer.description).toBe(description);
       expect(monthlyMiscOffer.destination).toBe(destination);
+      expect(monthlyMiscOffer.field.id).toBe(field.id);
     });
   });
 
@@ -182,7 +298,7 @@ describe('Monthly Misc Offer Service Integration', () => {
     it('Should Not Update a Monthly Misc Offer (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await monthlyMiscOfferService.update(randomId, { title: 'lol' });
+        await monthlyMiscOfferService.update(randomId, user, { title: 'lol' });
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -191,7 +307,34 @@ describe('Monthly Misc Offer Service Integration', () => {
       }
     });
 
-    it('Should Update a Monthly Misc Offer', async () => {
+    it('Should Not Update a Monthly Misc Offer (as USER && Different FIeld)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const monthlyMiscOffer = await createMonthlyMiscOffer(
+          month,
+          year,
+          title,
+          description,
+          destination,
+          differentField.id,
+        );
+        await monthlyMiscOfferService.update(monthlyMiscOffer.id, user, {
+          title: 'lol',
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
+
+    it('Should Update a Monthly Misc Offer (as USER)', async () => {
       const monthlyMiscOffer = await createMonthlyMiscOffer(
         month,
         year,
@@ -204,6 +347,7 @@ describe('Monthly Misc Offer Service Integration', () => {
 
       const monthlyMiscOfferUpdated = await monthlyMiscOfferService.update(
         monthlyMiscOffer.id,
+        user,
         {
           title: newTitle,
         },
@@ -211,13 +355,45 @@ describe('Monthly Misc Offer Service Integration', () => {
       expect(monthlyMiscOfferUpdated).toBeDefined();
       expect(monthlyMiscOfferUpdated.title).toBe(newTitle);
     });
+
+    it('Should Update a Monthly Misc Offer (as ADMIN)', async () => {
+      const differentField = await createField(
+        prisma,
+        'América',
+        'Brasil',
+        'São Paulo',
+        'AMEBRSP01',
+        'Designação',
+      );
+      const monthlyMiscOffer = await createMonthlyMiscOffer(
+        month,
+        year,
+        title,
+        description,
+        destination,
+        field.id,
+      );
+      const newTitle = 'Novo Título';
+
+      const monthlyMiscOfferUpdated = await monthlyMiscOfferService.update(
+        monthlyMiscOffer.id,
+        admin,
+        {
+          title: newTitle,
+          field: differentField.id,
+        },
+      );
+      expect(monthlyMiscOfferUpdated).toBeDefined();
+      expect(monthlyMiscOfferUpdated.title).toBe(newTitle);
+      expect(monthlyMiscOfferUpdated.field.id).toBe(differentField.id);
+    });
   });
 
   describe('remove()', () => {
     it('Should Not Remove a Monthly Misc Offer (Not Found)', async () => {
       try {
         const randomId = uuidv4();
-        await monthlyMiscOfferService.remove(randomId);
+        await monthlyMiscOfferService.remove(randomId, user);
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundException);
         expect(error.response.message).toBe(
@@ -226,7 +402,32 @@ describe('Monthly Misc Offer Service Integration', () => {
       }
     });
 
-    it('Should Remove a Monthly Misc Offer', async () => {
+    it('Should Not Remove a Monthly Misc Offer (as USER && Different Field)', async () => {
+      try {
+        const differentField = await createField(
+          prisma,
+          'América',
+          'Brasil',
+          'São Paulo',
+          'AMEBRSP01',
+          'Designação',
+        );
+        const monthlyMiscOffer = await createMonthlyMiscOffer(
+          month,
+          year,
+          title,
+          description,
+          destination,
+          differentField.id,
+        );
+        await monthlyMiscOfferService.remove(monthlyMiscOffer.id, user);
+      } catch (error) {
+        expect(error).toBeInstanceOf(ForbiddenException);
+        expect(error.response.message).toBe(MESSAGE.EXCEPTION.FORBIDDEN);
+      }
+    });
+
+    it('Should Remove a Monthly Misc Offer (as USER)', async () => {
       const monthlyMiscOffer = await createMonthlyMiscOffer(
         month,
         year,
@@ -236,7 +437,27 @@ describe('Monthly Misc Offer Service Integration', () => {
         field.id,
       );
 
-      await monthlyMiscOfferService.remove(monthlyMiscOffer.id);
+      await monthlyMiscOfferService.remove(monthlyMiscOffer.id, user);
+      const isTestimonialDeleted = await prisma.monthlyMiscOffer.findFirst({
+        where: {
+          id: monthlyMiscOffer.id,
+          deleted: { lte: new Date() },
+        },
+      });
+      expect(isTestimonialDeleted.deleted).toBeDefined();
+    });
+
+    it('Should Remove a Monthly Misc Offer (as ADMIN)', async () => {
+      const monthlyMiscOffer = await createMonthlyMiscOffer(
+        month,
+        year,
+        title,
+        description,
+        destination,
+        field.id,
+      );
+
+      await monthlyMiscOfferService.remove(monthlyMiscOffer.id, admin);
       const isTestimonialDeleted = await prisma.monthlyMiscOffer.findFirst({
         where: {
           id: monthlyMiscOffer.id,
