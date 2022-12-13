@@ -1,6 +1,13 @@
-import { Injectable, NotFoundException, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Query,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { TEMPLATE } from 'src/constants';
+import { MESSAGE, TEMPLATE } from 'src/constants';
 import { PaginationDto } from 'src/prisma/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { HardRemoveDto, RestoreDto } from 'src/utils';
@@ -10,31 +17,61 @@ import { CreateMonthlyFoodOfferDto, UpdateMonthlyFoodOfferDto } from './dto';
 export class MonthlyFoodOfferService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async create(createMonthlyFoodOfferDto: CreateMonthlyFoodOfferDto) {
-    return await this.prismaService.monthlyFoodOffer.create({
-      data: {
+  async create(
+    user: User,
+    createMonthlyFoodOfferDto: CreateMonthlyFoodOfferDto,
+  ) {
+    let dataObj = {};
+
+    if (user.role !== 'ADMIN') {
+      dataObj = {
+        ...createMonthlyFoodOfferDto,
+        field: {
+          connect: {
+            id: user.fieldId,
+          },
+        },
+      };
+    } else {
+      if (!createMonthlyFoodOfferDto.field) {
+        throw new BadRequestException({
+          message: TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+          data: {},
+        });
+      }
+
+      dataObj = {
         ...createMonthlyFoodOfferDto,
         field: {
           connect: {
             id: createMonthlyFoodOfferDto.field,
           },
         },
-      },
+      };
+    }
+
+    return await this.prismaService.monthlyFoodOffer.create({
+      data: dataObj as any,
+      include: { field: true },
     });
   }
 
   async findAll(@Query() query?: PaginationDto) {
-    return await this.prismaService.paginatedQuery('monthlyFoodOffer', query);
+    return await this.prismaService.paginatedQuery('monthlyFoodOffer', query, {
+      include: { field: true },
+    });
   }
 
   async findOne(id: string) {
     return await this.prismaService.monthlyFoodOffer.findUnique({
       where: { id },
+      include: { field: true },
     });
   }
 
   async update(
     id: string,
+    user: User,
     updateMonthlyFoodOfferDto: UpdateMonthlyFoodOfferDto,
   ) {
     try {
@@ -46,9 +83,32 @@ export class MonthlyFoodOfferService {
         delete updateMonthlyFoodOfferDto.field;
       }
 
+      if (user.role !== 'ADMIN') {
+        const monthlyFoodOffer =
+          await this.prismaService.monthlyFoodOffer.findFirst({
+            where: { id },
+          });
+
+        if (!monthlyFoodOffer) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND(
+              'oferta alimentícia mensal',
+              'a',
+            ),
+            data: {},
+          });
+        } else if (monthlyFoodOffer.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.monthlyFoodOffer.update({
         where: { id },
         data: updateMonthlyFoodOfferDto as any,
+        include: { field: true },
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -66,8 +126,30 @@ export class MonthlyFoodOfferService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: User) {
     try {
+      if (user.role !== 'ADMIN') {
+        const monthlyFoodOffer =
+          await this.prismaService.monthlyFoodOffer.findFirst({
+            where: { id },
+          });
+
+        if (!monthlyFoodOffer) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND(
+              'oferta alimentícia mensal',
+              'a',
+            ),
+            data: {},
+          });
+        } else if (monthlyFoodOffer.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.monthlyFoodOffer.delete({
         where: { id },
       });

@@ -1,3 +1,4 @@
+import { IsOptional } from 'class-validator';
 import { IsInt, IsNotEmpty, IsString, IsUUID } from 'src/utils';
 
 export class CreateMonthlyFoodOfferDto {
@@ -28,7 +29,7 @@ export class CreateMonthlyFoodOfferDto {
   @IsNotEmpty()
   @IsInt()
   churchCollectionExtra: number;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }

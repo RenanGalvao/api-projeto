@@ -180,7 +180,7 @@ describe('Monthly Monetary Offer Service Integration', () => {
       expect(monthlyMonetaryOffer.field.id).toBe(field.id);
     });
 
-    it('Should Not Create an Event (as ADMIN && Missing Data)', async () => {
+    it('Should Not Create aa Monthly Monetary Offer (as ADMIN && Missing Data)', async () => {
       try {
         await monthlyMonetaryOfferService.create(admin, {
           month,
