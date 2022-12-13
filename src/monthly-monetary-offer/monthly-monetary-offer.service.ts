@@ -63,12 +63,16 @@ export class MonthlyMonetaryOfferService {
     return await this.prismaService.paginatedQuery(
       'monthlyMonetaryOffer',
       query,
+      {
+        include: { field: true },
+      },
     );
   }
 
   async findOne(id: string) {
     return await this.prismaService.monthlyMonetaryOffer.findUnique({
       where: { id },
+      include: { field: true },
     });
   }
 

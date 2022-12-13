@@ -10,10 +10,10 @@ import {
 } from '@nestjs/common';
 import { MonthlyFoodOfferService } from './monthly-food-offer.service';
 import { CreateMonthlyFoodOfferDto, UpdateMonthlyFoodOfferDto } from './dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { PaginationDto } from 'src/prisma/dto';
 import { Roles } from 'src/auth/roles';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 
 @Controller('monthly-food-offer')
 export class MonthlyFoodOfferController {
@@ -22,8 +22,8 @@ export class MonthlyFoodOfferController {
   ) {}
 
   @Post()
-  create(@Body() createMonthlyFoodOfferDto: CreateMonthlyFoodOfferDto) {
-    return this.monthlyFoodOfferService.create(createMonthlyFoodOfferDto);
+  create(@Jwt() user: User, @Body() createMonthlyFoodOfferDto: CreateMonthlyFoodOfferDto) {
+    return this.monthlyFoodOfferService.create(user, createMonthlyFoodOfferDto);
   }
 
   @Public()
@@ -47,9 +47,10 @@ export class MonthlyFoodOfferController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateMonthlyFoodOfferDto: UpdateMonthlyFoodOfferDto,
   ) {
-    return this.monthlyFoodOfferService.update(id, updateMonthlyFoodOfferDto);
+    return this.monthlyFoodOfferService.update(id, user, updateMonthlyFoodOfferDto);
   }
 
   @Roles(Role.ADMIN)
@@ -59,7 +60,7 @@ export class MonthlyFoodOfferController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.monthlyFoodOfferService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.monthlyFoodOfferService.remove(id, user);
   }
 }
