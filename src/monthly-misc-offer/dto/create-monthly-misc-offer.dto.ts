@@ -1,3 +1,4 @@
+import { IsOptional } from 'class-validator';
 import { IsInt, IsNotEmpty, IsString, IsUUID } from 'src/utils';
 
 export class CreateMonthlyMiscOfferDto {
@@ -16,7 +17,7 @@ export class CreateMonthlyMiscOfferDto {
   @IsNotEmpty()
   @IsString()
   destination: string;
-  @IsNotEmpty()
+  @IsOptional()
   @IsUUID('4')
-  field: string;
+  field?: string;
 }

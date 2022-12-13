@@ -12,8 +12,8 @@ import { MonthlyMiscOfferService } from './monthly-misc-offer.service';
 import { CreateMonthlyMiscOfferDto, UpdateMonthlyMiscOfferDto } from './dto';
 import { PaginationDto } from 'src/prisma/dto';
 import { Roles } from 'src/auth/roles';
-import { Role } from '@prisma/client';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { Role, User } from '@prisma/client';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 
 @Controller('monthly-misc-offer')
 export class MonthlyMiscOfferController {
@@ -22,8 +22,8 @@ export class MonthlyMiscOfferController {
   ) {}
 
   @Post()
-  create(@Body() createMonthlyMiscOfferDto: CreateMonthlyMiscOfferDto) {
-    return this.monthlyMiscOfferService.create(createMonthlyMiscOfferDto);
+  create(@Jwt() user: User, @Body() createMonthlyMiscOfferDto: CreateMonthlyMiscOfferDto) {
+    return this.monthlyMiscOfferService.create(user, createMonthlyMiscOfferDto);
   }
 
   @Public()
@@ -47,9 +47,10 @@ export class MonthlyMiscOfferController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateMonthlyMiscOfferDto: UpdateMonthlyMiscOfferDto,
   ) {
-    return this.monthlyMiscOfferService.update(id, updateMonthlyMiscOfferDto);
+    return this.monthlyMiscOfferService.update(id, user, updateMonthlyMiscOfferDto);
   }
 
   @Roles(Role.ADMIN)
@@ -59,7 +60,7 @@ export class MonthlyMiscOfferController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.monthlyMiscOfferService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.monthlyMiscOfferService.remove(id, user);
   }
 }
