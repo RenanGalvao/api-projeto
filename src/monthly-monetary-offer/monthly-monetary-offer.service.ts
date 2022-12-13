@@ -1,6 +1,13 @@
-import { Injectable, NotFoundException, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Query,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
-import { TEMPLATE } from 'src/constants';
+import { MESSAGE, TEMPLATE } from 'src/constants';
 import { PaginationDto } from 'src/prisma/dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { HardRemoveDto, RestoreDto } from 'src/utils';
@@ -13,16 +20,42 @@ import {
 export class MonthlyMonetaryOfferService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async create(createMonthlyMonetaryOfferDto: CreateMonthlyMonetaryOfferDto) {
-    return await this.prismaService.monthlyMonetaryOffer.create({
-      data: {
+  async create(
+    user: User,
+    createMonthlyMonetaryOfferDto: CreateMonthlyMonetaryOfferDto,
+  ) {
+    let dataObj = {};
+
+    if (user.role !== 'ADMIN') {
+      dataObj = {
+        ...createMonthlyMonetaryOfferDto,
+        field: {
+          connect: {
+            id: user.fieldId,
+          },
+        },
+      };
+    } else {
+      if (!createMonthlyMonetaryOfferDto.field) {
+        throw new BadRequestException({
+          message: TEMPLATE.VALIDATION.IS_NOT_EMPTY('field'),
+          data: {},
+        });
+      }
+
+      dataObj = {
         ...createMonthlyMonetaryOfferDto,
         field: {
           connect: {
             id: createMonthlyMonetaryOfferDto.field,
           },
         },
-      },
+      };
+    }
+
+    return await this.prismaService.monthlyMonetaryOffer.create({
+      data: dataObj as any,
+      include: { field: true },
     });
   }
 
@@ -41,6 +74,7 @@ export class MonthlyMonetaryOfferService {
 
   async update(
     id: string,
+    user: User,
     updateMonthlyMonetaryOfferDto: UpdateMonthlyMonetaryOfferDto,
   ) {
     try {
@@ -52,9 +86,32 @@ export class MonthlyMonetaryOfferService {
         delete updateMonthlyMonetaryOfferDto.field;
       }
 
+      if (user.role !== 'ADMIN') {
+        const monthlyMonetaryOffer =
+          await this.prismaService.monthlyMonetaryOffer.findFirst({
+            where: { id },
+          });
+
+        if (!monthlyMonetaryOffer) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND(
+              'oferta monetária mensal',
+              'a',
+            ),
+            data: {},
+          });
+        } else if (monthlyMonetaryOffer.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.monthlyMonetaryOffer.update({
         where: { id },
         data: updateMonthlyMonetaryOfferDto as any,
+        include: { field: true },
       });
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
@@ -72,8 +129,30 @@ export class MonthlyMonetaryOfferService {
     }
   }
 
-  async remove(id: string) {
+  async remove(id: string, user: User) {
     try {
+      if (user.role !== 'ADMIN') {
+        const monthlyMonetaryOffer =
+          await this.prismaService.monthlyMonetaryOffer.findFirst({
+            where: { id },
+          });
+
+        if (!monthlyMonetaryOffer) {
+          throw new NotFoundException({
+            message: TEMPLATE.EXCEPTION.NOT_FOUND(
+              'oferta monetária mensal',
+              'a',
+            ),
+            data: {},
+          });
+        } else if (monthlyMonetaryOffer.fieldId !== user.fieldId) {
+          throw new ForbiddenException({
+            message: MESSAGE.EXCEPTION.FORBIDDEN,
+            data: {},
+          });
+        }
+      }
+
       return await this.prismaService.monthlyMonetaryOffer.delete({
         where: { id },
       });
