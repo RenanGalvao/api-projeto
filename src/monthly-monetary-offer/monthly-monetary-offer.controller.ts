@@ -13,9 +13,9 @@ import {
   CreateMonthlyMonetaryOfferDto,
   UpdateMonthlyMonetaryOfferDto,
 } from './dto';
-import { HardRemoveDto, Public, RestoreDto } from 'src/utils';
+import { HardRemoveDto, Public, RestoreDto, User as Jwt } from 'src/utils';
 import { Roles } from 'src/auth/roles';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { PaginationDto } from 'src/prisma/dto';
 
 @Controller('monthly-monetary-offer')
@@ -25,8 +25,12 @@ export class MonthlyMonetaryOfferController {
   ) {}
 
   @Post()
-  create(@Body() createMonthlyMonetaryOfferDto: CreateMonthlyMonetaryOfferDto) {
+  create(
+    @Jwt() user: User,
+    @Body() createMonthlyMonetaryOfferDto: CreateMonthlyMonetaryOfferDto,
+  ) {
     return this.monthlyMonetaryOfferService.create(
+      user,
       createMonthlyMonetaryOfferDto,
     );
   }
@@ -52,10 +56,12 @@ export class MonthlyMonetaryOfferController {
   @Put(':id')
   update(
     @Param('id') id: string,
+    @Jwt() user: User,
     @Body() updateMonthlyMonetaryOfferDto: UpdateMonthlyMonetaryOfferDto,
   ) {
     return this.monthlyMonetaryOfferService.update(
       id,
+      user,
       updateMonthlyMonetaryOfferDto,
     );
   }
@@ -67,7 +73,7 @@ export class MonthlyMonetaryOfferController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.monthlyMonetaryOfferService.remove(id);
+  remove(@Param('id') id: string, @Jwt() user: User) {
+    return this.monthlyMonetaryOfferService.remove(id, user);
   }
 }
