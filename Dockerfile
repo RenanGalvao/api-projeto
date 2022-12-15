@@ -1,8 +1,6 @@
 ###################
 # BUILD FOR PRODUCTION
 ###################
-
-# Base Image
 FROM node:18-alpine AS build
 
 # Create APP directory
@@ -32,16 +30,13 @@ USER node
 ###################
 # PRODUCTION
 ###################
-
 FROM node:18-alpine As production
+WORKDIR /usr/src/app
 
 # Copy the bundled code from the build stage to the production image
-#COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
-COPY --chown=node:node --from=build /usr/src/app/package.json ./
-COPY --chown=node:node --from=build /usr/src/app/package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
+COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
 COPY --chown=node:node --from=build /usr/src/app/dist ./dist
+COPY --chown=node:node --from=build /usr/src/app/package.json ./
 
 EXPOSE 3000
 
