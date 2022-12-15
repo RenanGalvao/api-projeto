@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional } from 'class-validator';
 import { IsInt, IsNotEmpty, IsNumber, IsString, IsUUID } from 'src/utils';
 
@@ -23,6 +24,9 @@ export class CreateMonthlyMonetaryOfferDto {
   @IsNotEmpty()
   @IsString()
   spentDescription: string;
+  @ApiProperty({
+    format: 'uuid'
+  })
   @IsOptional()
   @IsUUID('4')
   field?: string;

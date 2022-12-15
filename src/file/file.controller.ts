@@ -18,18 +18,30 @@ import {
 import { FileService } from './file.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { TEMPLATE, MAX_FILE_SIZE } from 'src/constants';
-import { MaxFilesSizeValidator } from 'src/utils';
+import {
+  ApiBatchResponse,
+  ApiCreatedResponse,
+  ApiFile,
+  ApiFiles,
+  ApiResponse,
+  MaxFilesSizeValidator,
+} from 'src/utils';
 import { PaginationDto } from 'src/prisma/dto';
-import { ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExtraModels, ApiTags } from '@nestjs/swagger';
 import { RestoreDto, HardRemoveDto } from 'src/utils/dto';
 import { Roles } from 'src/auth/roles';
 import { Role } from '@prisma/client';
+import { FileResponseDto } from './dto';
 
+@ApiTags('File')
+@ApiExtraModels(FileResponseDto)
 @ApiBearerAuth()
 @Controller('file')
 export class FileController {
   constructor(private readonly fileService: FileService) {}
 
+  @ApiFile()
+  @ApiCreatedResponse(FileResponseDto, { omitNestedField: true })
   @Post()
   @UseInterceptors(FileInterceptor('file'))
   create(
@@ -53,6 +65,11 @@ export class FileController {
     return this.fileService.create(file);
   }
 
+  @ApiFiles()
+  @ApiCreatedResponse(FileResponseDto, {
+    omitNestedField: true,
+    paginated: true,
+  })
   @Post('bulk')
   @UseInterceptors(FilesInterceptor('files'))
   bulkCreate(
@@ -77,30 +94,35 @@ export class FileController {
     return this.fileService.bulkCreate(files);
   }
 
+  @ApiResponse(FileResponseDto, { omitNestedField: true, paginated: true })
   @Roles(Role.ADMIN)
   @Get()
   findAll(@Query() query?: PaginationDto) {
     return this.fileService.findAll(query);
   }
 
+  @ApiResponse(FileResponseDto, { omitNestedField: true })
   @Roles(Role.ADMIN)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.fileService.findOne(id);
   }
 
+  @ApiBatchResponse()
   @Roles(Role.ADMIN)
   @Put('restore')
   restore(@Body() restoreDto: RestoreDto) {
     return this.fileService.restore(restoreDto);
   }
 
+  @ApiBatchResponse()
   @Roles(Role.ADMIN)
   @Delete('hard-remove')
   hardRemove(@Body() hardRemoveDto: HardRemoveDto) {
     return this.fileService.hardRemove(hardRemoveDto);
   }
 
+  @ApiResponse(FileResponseDto, { omitNestedField: true })
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.fileService.remove(id);
