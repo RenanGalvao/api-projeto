@@ -41,7 +41,14 @@
     "pretest:int:cov": "npm run pretest:int",
     "test:int:cov": "dotenv -e .env.test -- jest -i --coverage --forceExit --config jest-int.json",
     "pretest:e2e:cov": "npm run pretest:int",
-    "test:e2e:cov": "dotenv -e .env.test -- jest -i --coverage --forceExit --config jest-e2e.json"
+    "test:e2e:cov": "dotenv -e .env.test -- jest -i --coverage --forceExit --config jest-e2e.json",
+    "docker:ci:stop": "docker compose -f docker-compose.ci.yml rm test-db test-redis -s -f -v",
+    "docker:ci:start": "docker compose -f docker-compose.ci.yml up test-db test-redis -d",
+    "docker:ci:restart": "npm run docker:ci:stop && npm run docker:ci:start",
+    "pretest:e2e:ci": "npm run docker:ci:restart && npx prisma migrate reset --force --skip-seed",
+    "test:e2e:ci": "jest -i --ci --forceExit --config jest-e2e.json",
+    "pretest:int:ci": "npm run pretest:e2e:ci",
+    "test:int:ci": "jest -i --ci --forceExit --config jest-int.json"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^1.8.1",
@@ -85,6 +92,7 @@
     "@types/supertest": "^2.0.11",
     "@typescript-eslint/eslint-plugin": "^5.0.0",
     "@typescript-eslint/parser": "^5.0.0",
+    "dotenv-cli": "^6.0.0",
     "esbuild": "^0.15.16",
     "eslint": "^8.0.1",
     "eslint-config-prettier": "^8.3.0",
