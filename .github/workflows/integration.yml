@@ -40,5 +40,5 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and uploads image to Docker Hub
+      - name: Builds and uploads images to Docker Hub
         run: npm run build:docker

@@ -1,7 +1,7 @@
 ###################
 # BUILD FOR PRODUCTION
 ###################
-FROM node:18-alpine AS build
+FROM node:18-alpine3.17 AS build
 
 # Create APP directory
 WORKDIR /usr/src/app
@@ -30,7 +30,7 @@ USER node
 ###################
 # PRODUCTION
 ###################
-FROM node:18-alpine As production
+FROM node:18-alpine3.17 As production
 WORKDIR /usr/src/app
 
 # Copy the bundled code from the build stage to the production image
