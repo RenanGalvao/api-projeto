@@ -4,7 +4,7 @@ services:
   # PROD
   ###
   api:
-    image: renangalvao/repo:project-api
+    image: renangalvao/project-api:latest
     deploy:
       restart_policy:
         condition: on-failure
@@ -24,10 +24,10 @@ services:
       - REDIS_HOST
       - REDIS_PORT
     networks:
-      - project_network
+      - main_network
     volumes:
-      - project_api:/usr/src/app/files
-      - project_web_root:/var/www/html
+      - api_volume:/usr/src/app/files
+      - web_volume:/var/www/html
     depends_on:
       - db
       - cache
@@ -42,10 +42,10 @@ services:
     ports:
       - :6379
     networks:
-      - project_network
+      - main_network
 
   prisma-migrate:
-    image: renangalvao/repo:project-prisma-migrate
+    image: renangalvao/project-prisma-migrate:latest
     ports:
       - :5432
     environment:
@@ -53,7 +53,7 @@ services:
     depends_on:
       - db
     networks:
-      - project_network
+      - main_network
 
   db:
     image: postgres:13
@@ -69,9 +69,9 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_DB
     networks:
-      - project_network
+      - main_network
     volumes:
-      - project_db:/var/lib/postgresql/data
+      - db_volume:/var/lib/postgresql/data
 
   ###
   # DEV
@@ -86,7 +86,7 @@ services:
     ports:
       - 6379:6379
     networks:
-      - project_network
+      - main_network
 
   dev-db:
     image: postgres:13
@@ -100,16 +100,16 @@ services:
     env_file:
       - .env.dev
     networks:
-      - project_network
+      - main_network
     volumes:
-      - project_db:/var/lib/postgresql/data
+      - db_volume:/var/lib/postgresql/data
 
 
 networks:
-  project_network:
+  main_network:
     driver: bridge
 
 volumes:
-  project_api:
-  project_db:
-  project_web_root:
+  api_volume:
+  db_volume:
+  web_volume:
