@@ -68,12 +68,17 @@ describe('User Service Integration', () => {
           firstName,
           email,
           hashedPassword: 'notarealhash',
-          fieldId: field.id
+          fieldId: field.id,
         },
       });
 
       try {
-        await userService.create({ firstName, email, password, field: field.id });
+        await userService.create({
+          firstName,
+          email,
+          password,
+          field: field.id,
+        });
       } catch (error) {
         expect(error).toBeInstanceOf(ConflictException);
         expect(error.response.message).toBeDefined();
@@ -257,7 +262,9 @@ describe('User Service Integration', () => {
         })
       ).lastAccess;
 
-      expect(newLastAccess.getTime()).toBeGreaterThan(oldLastAccess.getTime());
+      expect(newLastAccess.getTime()).toBeGreaterThanOrEqual(
+        oldLastAccess.getTime(),
+      );
     });
   });
 
