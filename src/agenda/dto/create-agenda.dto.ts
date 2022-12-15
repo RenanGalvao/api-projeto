@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional } from 'class-validator';
 import { IsDate, IsNotEmpty, IsString, IsUUID } from 'src/utils';
 
@@ -10,11 +11,15 @@ export class CreateAgendaDto {
   message: string;
   @IsOptional()
   @IsString({ each: true })
-  attachments?: string;
+  attachments?: string[];
   @IsNotEmpty()
   @IsDate()
   date: Date;
   @IsOptional()
   @IsUUID('4')
+  @ApiProperty({
+    type: 'string',
+    format: 'uuid',
+  })
   field?: string;
 }

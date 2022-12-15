@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Occupation } from '@prisma/client';
 import { IsOptional } from 'class-validator';
 import {
@@ -16,6 +17,9 @@ export class CreateVolunteerDto {
   @IsOptional()
   @IsString()
   lastName?: string;
+  @ApiProperty({
+    format: 'email',
+  })
   @IsOptional()
   @IsEmail()
   email?: string;
@@ -25,6 +29,9 @@ export class CreateVolunteerDto {
   @IsNotEmpty()
   @IsDate()
   joinedDate: Date;
+  @ApiProperty({
+    enum: Occupation,
+  })
   @IsOptional()
   @IsEnum(Occupation, Object.keys(Occupation))
   occupation?: Occupation;
@@ -34,6 +41,9 @@ export class CreateVolunteerDto {
   @IsOptional()
   @IsString()
   priest?: string;
+  @ApiProperty({
+    format: 'uuid',
+  })
   @IsOptional()
   @IsUUID('4')
   field?: string;

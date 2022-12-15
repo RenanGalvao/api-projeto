@@ -18,3 +18,17 @@ export type Routes = {
     gender: string;
   };
 };
+
+export type ApiResponseOptions = {
+  paginated?: boolean;
+  omitNestedField?: boolean;
+  extend?: {
+    key: string;
+    value: any;
+  };
+};
+
+export type ApiCreatedResponseOptions = {
+  paginated?: boolean;
+  omitNestedField?: boolean;
+};

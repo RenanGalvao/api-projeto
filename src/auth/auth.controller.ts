@@ -1,21 +1,24 @@
 import { Controller, Post, UseGuards, Body } from '@nestjs/common';
 import { LocalAuthGuard } from './local';
 import { AuthService } from 'src/auth/auth.service';
-import { Public, ApiController, User as Jwt } from 'src/utils';
-import { LoginResponse } from './entities';
+import { Public, User as Jwt } from 'src/utils';
 import { SendRecoverEmailDto, NewPasswordDto } from 'src/mail/dto';
 import { User } from '@prisma/client';
 import { RefreshJwtAuthGuard } from './refresh-jwt';
 import { Throttle } from '@nestjs/throttler';
 import { HOUR_IN_SECS } from 'src/constants';
 import { TokenValidateDto } from './dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiLogin } from 'src/utils/decorator/api-login';
+import { ApiRefresh } from 'src/utils/decorator/api-refresh';
 
-@ApiController('Login', [LoginResponse])
+@ApiTags('Auth')
 @Throttle(3, HOUR_IN_SECS)
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @ApiLogin()
   @Public()
   @Throttle(10, HOUR_IN_SECS)
   @UseGuards(LocalAuthGuard)
@@ -43,6 +46,8 @@ export class AuthController {
     return this.authService.sendRecoverEmail(sendRecoverEmailDto);
   }
 
+  @ApiBearerAuth()
+  @ApiRefresh()
   @Throttle(10, HOUR_IN_SECS)
   @Public()
   @UseGuards(RefreshJwtAuthGuard)
@@ -51,6 +56,7 @@ export class AuthController {
     return this.authService.refresh(user, refreshToken);
   }
 
+  @ApiBearerAuth()
   @Throttle(10, HOUR_IN_SECS)
   @Post('logout')
   logout(@Jwt() user: User) {

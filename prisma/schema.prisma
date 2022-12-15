@@ -111,7 +111,7 @@ model Field {
   state            String
   abbreviation     String
   designation      String
-  mapLocation      Json? // MapOptions
+  mapLocation      Json?  // MapOptions
   mapArea          Json[] // PolygonOptions
   collectionPoints Json[] // CollectionPoints
   streetRelation   String[]
