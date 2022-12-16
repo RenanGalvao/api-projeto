@@ -1,7 +1,11 @@
 ###################
 # BUILD FOR PRODUCTION
 ###################
-FROM node:18-alpine3.17 AS build
+FROM node:18-alpine AS build
+
+# Fix Unable to establish a connection to query-engine-node-api library. It seems there is a problem with your OpenSSL installation!
+# https://github.com/prisma/prisma/issues/14073#issuecomment-1348534199
+RUN apk add --update --no-cache openssl1.1-compat
 
 # Create APP directory
 WORKDIR /usr/src/app
@@ -30,7 +34,8 @@ USER node
 ###################
 # PRODUCTION
 ###################
-FROM node:18-alpine3.17 As production
+FROM node:18-alpine  As production
+RUN apk add --update --no-cache openssl1.1-compat
 WORKDIR /usr/src/app
 
 # Copy the bundled code from the build stage to the production image

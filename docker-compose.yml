@@ -11,7 +11,7 @@ services:
         max_attempts: 5
         window: 120s
     ports:
-      - 3000:3000
+      - :3000
     environment:
       - ACCESS_TOKEN_JWT_SECRET
       - REFRESH_TOKEN_JWT_SECRET
