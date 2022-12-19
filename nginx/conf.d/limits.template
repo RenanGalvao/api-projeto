@@ -1,0 +1,11 @@
+limit_req_zone ${DOLLAR}binary_remote_addr zone=web_req:10m rate=60r/s ;
+limit_req_zone ${DOLLAR}binary_remote_addr zone=api_req:10m rate=60r/s ;
+limit_req_status 429;
+limit_req_log_level notice;
+
+limit_conn_zone ${DOLLAR}binary_remote_addr zone=conn:10m;
+limit_conn_status 429;
+limit_conn_log_level notice;
+
+client_body_timeout 10s;
+client_header_timeout 10s;

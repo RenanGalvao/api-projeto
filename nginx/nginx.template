@@ -1,0 +1,18 @@
+http {
+  access_log /var/log/nginx/access.log;
+
+  include mime.types;
+  include conf.d/compression.conf;
+  include conf.d/proxy-cache.conf; # keys_zone:my_cache
+  include conf.d/limits.conf; # zones: web_req, api_req
+
+  include /etc/nginx/sites-enabled/*; 
+  
+  server_tokens off;
+
+  upstream backendserver {
+    server ${BACKEND_SERVER_URL};
+  }
+}
+
+events {}

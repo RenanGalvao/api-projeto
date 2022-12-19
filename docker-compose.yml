@@ -77,7 +77,67 @@ services:
   ###
   # DEV
   ###
-  dev-redis:
+  dev-api:
+    container_name: dev-api
+    build:
+      context: .
+      target: dev-image
+      no_cache: false
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+        window: 120s
+    ports:
+      - :3000
+    env_file:
+      - .env.dev
+    networks:
+      - main_network
+    volumes:
+      - api_volume:/usr/src/app/files
+      - web_volume:/var/www/html
+    depends_on:
+      - dev-db
+      - dev-cache
+      
+  dev-nginx:
+    container_name: dev-nginx
+    build:
+      context: .
+      dockerfile: nginx.dockerfile
+      target: dev-image
+      args:
+        - BACKEND_SERVER_URL=$BACKEND_SERVER_URL
+        - BACKEND_SERVER_NAME=$BACKEND_SERVER_NAME
+        - BACKUP_SERVER_URL=$BACKUP_SERVER_URL
+        - BACKUP_SERVER_NAME=$BACKUP_SERVER_NAME
+        - SERVER_NAME=$SERVER_NAME
+        - PUBLIC_API_URL=$PUBLIC_API_URL
+        - PUBLIC_STATIC_PATH=$PUBLIC_STATIC_PATH
+        - MAX_CONN_WEB=$MAX_CONN_WEB
+        - MAX_CONN_API=$MAX_CONN_API
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+        window: 120s
+    ports:
+      - 80:80
+    env_file:
+      - .env.dev
+    volumes:
+      - api_volume:/var/www/static
+      - web_volume:/var/www/html
+      #- certbot-etc:/etc/letsencrypt
+      #- certbot-var:/var/lib/letsencrypt
+    networks:
+      - main_network
+    depends_on:
+      - dev-api
+
+  dev-cache:
+    container_name: dev-cache
     image: redis:7-alpine
     deploy:
       restart_policy:
@@ -85,11 +145,12 @@ services:
         max_attempts: 5
         window: 120s
     ports:
-      - 6379:6379
+      - :6379
     networks:
       - main_network
 
   dev-db:
+    container_name: dev-db
     image: postgres:13
     deploy:
       restart_policy:
@@ -97,7 +158,7 @@ services:
         max_attempts: 5
         window: 120s
     ports:
-      - 5432:5432
+      - :5432
     env_file:
       - .env.dev
     networks:
@@ -105,6 +166,19 @@ services:
     volumes:
       - db_volume:/var/lib/postgresql/data
 
+  dev-migrate:
+    container_name: dev-migrate
+    build:
+      context: .
+      dockerfile: prisma.dockerfile
+    ports:
+      - :5432
+    env_file:
+      - .env.dev
+    depends_on:
+      - dev-db
+    networks:
+      - main_network
 
 networks:
   main_network:
