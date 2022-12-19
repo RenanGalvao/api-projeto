@@ -1,0 +1,34 @@
+server {
+  listen 443 ssl http2 backlog=4096;
+  listen [::]:443 ssl http2 backlog=4096;
+  server_name ${SERVER_NAME} www.${SERVER_NAME};
+
+  limit_conn conn ${MAX_CONN_WEB};
+  limit_req zone=web_req burst=30 nodelay;
+
+  include conf.d/ssl.conf;
+
+  location / {
+    root /var/www/html;
+
+    if (${DOLLAR}request_uri ~ ^/(.*)\.html) {
+    return 302 /${DOLLAR}1;
+    }
+    try_files ${DOLLAR}uri ${DOLLAR}uri.html ${DOLLAR}uri/ =404;
+
+    add_header "Cache-Control" "public";
+    expires 30d;
+  }
+
+  location /static/ {
+    root /var/www;
+    access_log off;
+
+    sendfile on;
+    sendfile_max_chunk 1m;
+    tcp_nopush on;
+
+    add_header "Cache-Control" "public";
+    expires 365d;
+  }
+}

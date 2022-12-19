@@ -1,0 +1,29 @@
+server {
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+  server_name ${BACKEND_SERVER_NAME};
+
+  limit_conn conn ${MAX_CONN_API};
+  limit_req zone=api_req burst=20 nodelay;
+
+  include conf.d/ssl.conf;
+
+  location / {
+    # Simple requests
+    if (${DOLLAR}request_method = GET) {
+      add_header "X-Cache-Status" ${DOLLAR}upstream_cache_status;
+    }
+
+    include conf.d/cors-preflight.conf;
+
+    proxy_cache my_cache;
+    proxy_cache_valid 200 1d;
+    proxy_cache_bypass ${DOLLAR}http_authorization;
+
+    proxy_set_header X-Forwarded-For ${DOLLAR}proxy_add_x_forwarded_for;
+    proxy_set_header Host ${DOLLAR}host;
+    proxy_pass_header Server;
+    proxy_pass http://backendserver;
+  }
+}
+  
