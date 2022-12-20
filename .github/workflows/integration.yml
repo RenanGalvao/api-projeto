@@ -41,4 +41,15 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Builds and uploads images to Docker Hub
+        env:
+          DOLLAR: $
+          BACKEND_SERVER_URL: api:3000
+          BACKEND_SERVER_NAME: api.projetoumportodostodosporum.org
+          BACKUP_SERVER_URL: duplicati:8200
+          BACKUP_SERVER_NAME: duplicati.projetoumportodostodosporum.org
+          SERVER_NAME: projetoumportodostodosporum.org
+          PUBLIC_API_URL: https://api.projetoumportodostodosporum.org
+          PUBLIC_STATIC_PATH: /static
+          MAX_CONN_WEB: 50
+          MAX_CONN_API: 50
         run: npm run build:docker
